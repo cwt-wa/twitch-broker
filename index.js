@@ -175,6 +175,7 @@ function endWithCode(res, code, payload) {
 function shutdownHook() {
   server.close(err => console.error(err))
   fs.writeFileSync(cacheFilePath, JSON.stringify(streams));
+  process.exit(0)
 }
 
 ['SIGINT', 'SIGTERM', 'SIGQUIT'].forEach(sig => process.on(sig, shutdownHook))
