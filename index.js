@@ -69,7 +69,8 @@ function consume(req, res, body, raw) {
     streams.push(...body.data.map(e => ({
       event_id: e.id,
       title: e.title,
-      user_id: e.userId
+      user_id: e.userId,
+      user_name: e.user_name
     })))
   } else { // stream's gone off
     const userId = userIdFromUrl(req.url)
