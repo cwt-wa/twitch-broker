@@ -35,7 +35,7 @@ if (help) {
     ${bold('OPTIONS')}
     ${bold('--no-signature')}   Skip signature check
     ${bold('--port 80')}        Run on port 80 (defaults to 9999)
-    ${bold('--host abc.com')}   This server's hostname (defaults to localhost:9999)
+    ${bold('--host abc.com')}   This server's hostname (defaults to localhost)
     ${bold('--help')}           Display this help
   `)
 
