@@ -50,7 +50,8 @@ const server = http.createServer((req, res) => {
   if (req.url.startsWith('/consume')) bodify(req, (body, raw) => consume(req, res, body, raw))
   else if (req.url === '/produce') produce(req, res)
   else if (req.url === '/current') current(req, res)
-  else if (req.url.startsWith('/subscribe')) subscribe(req, res)
+  else if (req.url.startsWith('/subscribe')) subUnsub(req, res, 'subscribe')
+  else if (req.url.startsWith('/unsubscribe')) subUnsub(req, res, 'unsubscribe')
   else endWithCode(res, 404)
 }).listen(port)
 
@@ -90,7 +91,7 @@ function produce(req, res) {
   res.on('close', () => eventEmitter.removeListener('stream', eventListener))
 }
 
-function subscribe(req, res) {
+function subUnsub(req, res, subUnsubAction) {
   const userId = userIdFromUrl(req.url)
   const options = {
     method: 'POST',
@@ -107,7 +108,7 @@ function subscribe(req, res) {
 
   twitchReq.write(JSON.stringify({
     "hub.callback": `http://${hostname}/consume/${userId}`,
-    "hub.mode": 'subscribe',
+    "hub.mode": subUnsubAction,
     "hub.topic": 'https://api.twitch.tv/helix/streams',
     "hub.secret": secret,
     "hub.lease_seconds": 0 // for testing
