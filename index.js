@@ -51,19 +51,24 @@ const eventEmitter = new EventEmitter();
 eventEmitter.setMaxListeners(Infinity); // uh oh
 
 const server = http.createServer((req, res) => {
-  req.on('error', err => console.error(err.stack));
-  cors(req, res);
-  if (req.url.startsWith('/consume')) bodify(req, (body, raw) => consume(req, res, body, raw));
-  else if (req.url === '/produce') produce(req, res);
-  else if (req.url === '/current') current(req, res);
-  else if (req.url.startsWith('/subscribe')) subUnsub(req, res, 'subscribe');
-  else if (req.url.startsWith('/unsubscribe')) subUnsub(req, res, 'unsubscribe');
-  else endWithCode(res, 404)
+  bodify(req, (body, raw) => {
+    console.info(`
+URL:     ${req.url}
+Headers: ${JSON.stringify(req.headers)}
+Payload: ${body && JSON.stringify(body)}
+    `);
+    req.on('error', err => console.error(err.stack));
+    cors(req, res);
+    if (req.url.startsWith('/consume')) consume(req, res, body, raw);
+    else if (req.url === '/produce') produce(req, res);
+    else if (req.url === '/current') current(req, res);
+    else if (req.url.startsWith('/subscribe')) subUnsub(req, res, 'subscribe');
+    else if (req.url.startsWith('/unsubscribe')) subUnsub(req, res, 'unsubscribe');
+    else endWithCode(res, 404)
+  });
 }).listen(port);
 
 function consume(req, res, body, raw) {
-  console.info('Consume:', raw.trim());
-
   if (!validateContentLength(req, res, raw)) return;
   if (!validateSignature()) return;
 
