@@ -62,8 +62,8 @@ function consume(req, res, body, raw) {
 
   if (body.data.length !== 0) {
     let newStreams = body.data
-      .filter(e => streams.map(s => s.event_id).indexOf(e.id) === -1)
-      .filter(e => cwtInTitle(e.title));
+        .filter(e => streams.map(s => s.event_id).indexOf(e.id) === -1)
+        .filter(e => cwtInTitle(e.title));
     if (newStreams.length === 0) return endWithCode(res, 200);
 
     streams.push(...body.data.map(e => ({
@@ -121,8 +121,8 @@ function subUnsub(req, res, subUnsubAction) {
 function bodify(req, cb) {
   let body = '';
   req
-    .on('data', chunk => body += chunk)
-    .on('end', () => cb(JSON.parse(body), body))
+      .on('data', chunk => body += chunk)
+      .on('end', () => cb(JSON.parse(body), body))
 }
 
 function current(req, res) {
@@ -135,8 +135,8 @@ function validateSignature(req, res, raw) {
 
   const signature = req.headers['X-Hub-Signature'];
   const expectedSignature = createHmac('sha256', secret)
-                              .update(raw)
-                              .digest('hex');
+      .update(raw)
+      .digest('hex');
 
   if (signature !== `sha256=${expectedSignature}`) {
     console.log('Invalid signature.');
