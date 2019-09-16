@@ -181,7 +181,7 @@ function endWithCode(res, code, payload) {
 }
 
 function shutdownHook() {
-  server.close(err => console.error(err));
+  server.close(console.error);
   fs.writeFileSync(cacheFilePath, JSON.stringify(streams));
   process.exit(0)
 }
