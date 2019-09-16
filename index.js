@@ -27,7 +27,7 @@ if (!secret && verifySignature) {
 }
 
 if (help) {
-  console.log(`
+  console.info(`
     ${bold('CACHE')}
     Upon exiting the program the current state
     is serialized to ${bold(cacheFilePath)}
@@ -62,6 +62,8 @@ const server = http.createServer((req, res) => {
 }).listen(port);
 
 function consume(req, res, body, raw) {
+  console.info('Consume:', raw);
+
   if (!validateContentLength(req, res, raw)) return;
   if (!validateSignature()) return;
 
@@ -109,9 +111,9 @@ function subUnsub(req, res, subUnsubAction) {
 
   const twitchReq = http.request(
       'https://api.twitch.tv/helix/webhooks/hub',
-      options, () => console.log(`Subscribed to ${userId}`));
+      options, () => console.info(`Subscribed to ${userId}`));
 
-  twitchReq.on('error', console.log);
+  twitchReq.on('error', console.error);
 
   twitchReq.write(JSON.stringify({
     "hub.callback": `http://${hostname}/consume/${userId}`,
@@ -144,7 +146,7 @@ function validateSignature(req, res, raw) {
       .digest('hex');
 
   if (signature !== `sha256=${expectedSignature}`) {
-    console.log('Invalid signature.');
+    console.error('Invalid signature.');
     endWithCode(res, 400);
     return false
   }
@@ -159,7 +161,7 @@ function validateContentLength(req, res, raw) {
 
   const contentLengthFactual = Buffer.byteLength(raw, 'utf8');
   if (parseInt(contentLengthHeader) !== contentLengthFactual) {
-    console.log('Content-Length mismatch.');
+    console.error('Content-Length mismatch.');
     endWithCode(res, 400);
     return false
   }
