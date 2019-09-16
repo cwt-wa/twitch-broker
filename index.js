@@ -21,6 +21,11 @@ const secret = process.env.TWITCH_WEBHOOK_SECRET;
 const streams = assert(() => JSON.parse(fs.readFileSync(cacheFilePath).toString()), []);
 const hostname = assert(() => args.match(/\|--host (?:https?:\/\/)(.+?)\/?\|/)[1], 'localhost:9999');
 
+if (!secret && verifySignature) {
+  console.error('Please provide a secret via environment variable: TWITCH_WEBHOOK_SECRET');
+  process.exit(1);
+}
+
 if (help) {
   console.log(`
     ${bold('CACHE')}
