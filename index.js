@@ -62,7 +62,7 @@ const server = http.createServer((req, res) => {
 }).listen(port);
 
 function consume(req, res, body, raw) {
-  console.info('Consume:', raw);
+  console.info('Consume:', raw.trim());
 
   if (!validateContentLength(req, res, raw)) return;
   if (!validateSignature()) return;
