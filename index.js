@@ -102,9 +102,9 @@ function subUnsub(req, res, subUnsubAction) {
     }
   };
 
-  var twitchReq = http.request(
+  const twitchReq = http.request(
       'https://api.twitch.tv/helix/webhooks/hub',
-      options, res => console.log(`Subscribed to ${userId}`));
+      options, () => console.log(`Subscribed to ${userId}`));
 
   twitchReq.on('error', console.log);
 
