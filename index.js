@@ -86,6 +86,7 @@ function consume(req, res, body, raw) {
     })))
   } else { // stream's gone off
     const userId = userIdFromUrl(req.url);
+    if (userId == null) return endWithCode(res, 404);
     streams.splice(streams.findIndex(s => s.user_id === userId), 1)
   }
 
@@ -107,6 +108,7 @@ function produce(req, res) {
 
 function subUnsub(req, res, subUnsubAction) {
   const userId = userIdFromUrl(req.url);
+  if (userId == null) return endWithCode(res, 404);
   const options = {
     method: 'POST',
     headers: {
