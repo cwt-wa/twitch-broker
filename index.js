@@ -86,7 +86,11 @@ function consume(req, res, body, raw) {
   } else { // stream's gone off
     const userId = userIdFromUrl(req.url);
     if (userId == null) return endWithCode(res, 404);
-    streams.splice(streams.findIndex(s => s.user_id === userId), 1)
+    let idxOfToBeRemovedStream = streams.findIndex(s => s.user_id === userId);
+    while (idxOfToBeRemovedStream !== -1) {
+      streams.splice(idxOfToBeRemovedStream, 1);
+      idxOfToBeRemovedStream = streams.findIndex(s => s.user_id === userId);
+    }
   }
 
   eventEmitter.emit('stream');
