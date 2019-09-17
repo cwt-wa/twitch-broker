@@ -51,6 +51,8 @@ const eventEmitter = new EventEmitter();
 eventEmitter.setMaxListeners(Infinity); // uh oh
 
 const server = http.createServer((req, res) => {
+  if (req.url === '/favicon.ico') return endWithCode(res, 404);
+
   bodify(req, (body, raw) => {
     try {
       console.info(`
