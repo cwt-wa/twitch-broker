@@ -146,7 +146,7 @@ function subUnsub(req, res, subUnsubAction) {
   twitchReq.write(JSON.stringify({
     "hub.callback": `http://${hostname}/consume/${userId}`,
     "hub.mode": subUnsubAction,
-    "hub.topic": 'https://api.twitch.tv/helix/streams',
+    "hub.topic": `https://api.twitch.tv/helix/streams?user_id=${userId}`,
     "hub.secret": secret,
     "hub.lease_seconds": 864000,
   }));
