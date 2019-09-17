@@ -135,6 +135,7 @@ function subUnsub(req, res, subUnsubAction) {
     "hub.mode": subUnsubAction,
     "hub.topic": 'https://api.twitch.tv/helix/streams',
     "hub.secret": secret,
+    "hub.lease_seconds": 864000,
   }));
   twitchReq.end()
 }
