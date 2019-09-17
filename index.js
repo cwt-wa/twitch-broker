@@ -132,7 +132,7 @@ function subUnsub(req, res, subUnsubAction) {
     }
   };
 
-  const twitchReq = http.request(
+  const twitchReq = require('https').request(
       'https://api.twitch.tv/helix/webhooks/hub',
       options, () => console.info(`Subscribed to ${userId}`));
 
