@@ -56,7 +56,7 @@ const server = http.createServer((req, res) => {
   bodify(req, (body, raw) => {
     try {
       console.info(`
-${req.method} ${req.url}
+${req.method} ${req.url} at ${Date.now()}
 Headers: ${JSON.stringify(req.headers)}
 Payload: ${body && JSON.stringify(body)}`);
       req.on('error', console.error);
