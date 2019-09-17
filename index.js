@@ -134,7 +134,15 @@ function bodify(req, cb) {
   let body = '';
   req
       .on('data', chunk => body += chunk)
-      .on('end', () => cb(JSON.parse(body), body))
+      .on('end', () => {
+        if (!body) return cb(null);
+        try {
+          cb(JSON.parse(body), body)
+        } catch (e) {
+          console.warn('body could not be parsed', e);
+          cb(null);
+        }
+      });
 }
 
 function current(req, res) {
