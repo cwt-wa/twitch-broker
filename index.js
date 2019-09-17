@@ -53,11 +53,10 @@ eventEmitter.setMaxListeners(Infinity); // uh oh
 const server = http.createServer((req, res) => {
   bodify(req, (body, raw) => {
     console.info(`
-URL:     ${req.url}
+${req.method} ${req.url}
 Headers: ${JSON.stringify(req.headers)}
-Payload: ${body && JSON.stringify(body)}
-    `);
-    req.on('error', err => console.error(err.stack));
+Payload: ${body && JSON.stringify(body)}`);
+    req.on('error', console.error);
     cors(req, res);
     if (req.url.startsWith('/consume')) consume(req, res, body, raw);
     else if (req.url === '/produce') produce(req, res);
