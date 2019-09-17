@@ -5,7 +5,7 @@ const {createHmac} = require('crypto');
 
 const cacheFilePath = '/tmp/nodejs-sse.json';
 const cwtInTitle = title => title.match(/\bcwt\b/i) !== null;
-const userIdFromUrl = url => parseInt(url.split('/')[2]);
+const userIdFromUrl = url => url.split('/')[2];
 const asEvent = payload => 'data: ' + JSON.stringify(payload) + '\n\n';
 const bold = txt => '\033[1m' + txt + '\033[0m';
 const assert = (expression, fallback) => {
