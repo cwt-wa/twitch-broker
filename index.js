@@ -52,18 +52,23 @@ eventEmitter.setMaxListeners(Infinity); // uh oh
 
 const server = http.createServer((req, res) => {
   bodify(req, (body, raw) => {
-    console.info(`
+    try {
+      console.info(`
 ${req.method} ${req.url}
 Headers: ${JSON.stringify(req.headers)}
 Payload: ${body && JSON.stringify(body)}`);
-    req.on('error', console.error);
-    cors(req, res);
-    if (req.url.startsWith('/consume')) consume(req, res, body, raw);
-    else if (req.url === '/produce') produce(req, res);
-    else if (req.url === '/current') current(req, res);
-    else if (req.url.startsWith('/subscribe')) subUnsub(req, res, 'subscribe');
-    else if (req.url.startsWith('/unsubscribe')) subUnsub(req, res, 'unsubscribe');
-    else endWithCode(res, 404)
+      req.on('error', console.error);
+      cors(req, res);
+      if (req.url.startsWith('/consume')) consume(req, res, body, raw);
+      else if (req.url === '/produce') produce(req, res);
+      else if (req.url === '/current') current(req, res);
+      else if (req.url.startsWith('/subscribe')) subUnsub(req, res, 'subscribe');
+      else if (req.url.startsWith('/unsubscribe')) subUnsub(req, res, 'unsubscribe');
+      else endWithCode(res, 404)
+    } catch (e) {
+      console.error(e);
+      endWithCode(res, 500);
+    }
   });
 }).listen(port);
 
