@@ -128,7 +128,9 @@ function subUnsub(req, res, subUnsubAction) {
   const options = {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'client-id': 'yourClientId',
+      'Authorization': 'Bearer yourToken'
     }
   };
 
