@@ -75,7 +75,7 @@ Payload: ${body && JSON.stringify(body)}`);
 }).listen(port);
 
 function consume(req, res, body, raw) {
-  const hubCallback = new URL(req.url, `http://${hostname}`).searchParams.get('hub.callback');
+  const hubCallback = new URL(req.url, `http://${hostname}`).searchParams.get('hub.challenge');
   if (hubCallback != null) {
     console.info('Verifying callback.', hubCallback);
     return endWithCode(res, 202, hubCallback);
