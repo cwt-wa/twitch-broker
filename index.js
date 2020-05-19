@@ -1,4 +1,6 @@
 const http = require('http');
+const https = require('https');
+const querystring = require('querystring');
 const fs = require('fs');
 const {EventEmitter} = require('events');
 const {createHmac} = require('crypto');
@@ -54,8 +56,63 @@ if (!process.env.TWITCH_CLIENT_SECRET && verifySignature) {
 const eventEmitter = new EventEmitter();
 eventEmitter.setMaxListeners(Infinity); // uh oh
 
-const server = http.createServer((req, res) => {
+let accessToken;
+
+async function authenticate() {
+  let promiseResolver;
+  const promise = new Promise(resolve => promiseResolver = resolve);
+  const queryParams = querystring.stringify({
+    "client_id": process.env.TWITCH_CLIENT_ID,
+    "client_secret": process.env.TWITCH_CLIENT_SECRET,
+    "grant_type": "client_credentials",
+  });
+  https.request(
+    `https://id.twitch.tv/oauth2/token?${queryParams}`,
+    {method: 'POST'},
+    (twitchRes) => {
+      console.log("There's been a response now.");
+      bodify(twitchRes, body => {
+        console.info('Response from access token request', body);
+        accessToken = body.access_token;
+        promiseResolver({res: twitchRes, body});
+      });
+    }).end();
+  return promise;
+}
+
+async function validateAccessToken() {
+  let promiseResolver;
+  const promise = new Promise(resolve => promiseResolver = resolve);
+  https.request(
+    `https://id.twitch.tv/oauth2/validate`,
+    {
+      method: 'GET',
+      headers: {
+        Authorization: `OAuth ${accessToken}`
+      }
+    },
+    (twitchRes) => {
+      bodify(twitchRes, body => {
+        console.info('Response from validating access token', body);
+        promiseResolver({res: twitchRes, body});
+      });
+    }).end();
+  return promise;
+}
+
+const server = http.createServer(async (req, res) => {
   if (req.url === '/favicon.ico') return endWithCode(res, 404);
+
+  if (!accessToken) {
+    console.info("There's no accessToken, requesting from Twitch.");
+    await authenticate();
+  } else {
+    console.info("Access token exists, let's validate.");
+    const validateRes = await validateAccessToken();
+    if (!validateRes.res.statusCode.toString().startsWith('2')) {
+      await authenticate();
+    }
+  }
 
   bodify(req, (body, raw) => {
     try {
@@ -134,11 +191,11 @@ function subUnsub(req, res, subUnsubAction) {
     headers: {
       'Content-Type': 'application/json',
       'client-id': process.env.TWITCH_CLIENT_ID,
-      'Authorization': 'Bearer yourToken' // todo this whole script should do authentication on its own
+      'Authorization': `Bearer ${accessToken}`
     }
   };
 
-  const twitchReq = require('https').request(
+  const twitchReq = https.request(
     'https://api.twitch.tv/helix/webhooks/hub',
     options, (twitchRes) => {
       bodify(twitchRes, body => {
