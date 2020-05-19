@@ -86,8 +86,8 @@ function consume(req, res, body, raw) {
 
   if (body.data.length !== 0) {
     let newStreams = body.data
-        .filter(e => streams.map(s => s.event_id).indexOf(e.id) === -1)
-        .filter(e => cwtInTitle(e.title));
+      .filter(e => streams.map(s => s.event_id).indexOf(e.id) === -1)
+      .filter(e => cwtInTitle(e.title));
     if (newStreams.length === 0) return endWithCode(res, 200);
 
     streams.push(...body.data.map(e => ({
