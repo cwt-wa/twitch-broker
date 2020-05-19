@@ -139,13 +139,13 @@ function subUnsub(req, res, subUnsubAction) {
   };
 
   const twitchReq = require('https').request(
-      'https://api.twitch.tv/helix/webhooks/hub',
-      options, (twitchRes) => {
-        bodify(twitchRes, body => {
-          console.info(`${subUnsubAction}d to ${userId} with HTTP status ${twitchRes.statusCode}`);
-          endWithCode(res, 200);
-        });
+    'https://api.twitch.tv/helix/webhooks/hub',
+    options, (twitchRes) => {
+      bodify(twitchRes, body => {
+        console.info(`${subUnsubAction}d to ${userId} with HTTP status ${twitchRes.statusCode}`);
+        endWithCode(res, 200);
       });
+    });
 
   twitchReq.on('error', console.error);
 
@@ -162,16 +162,16 @@ function subUnsub(req, res, subUnsubAction) {
 function bodify(req, cb) {
   let body = '';
   req
-      .on('data', chunk => body += chunk)
-      .on('end', () => {
-        if (!body) return cb(null);
-        try {
-          cb(JSON.parse(body), body)
-        } catch (e) {
-          console.warn('body could not be parsed', e);
-          cb(null);
-        }
-      });
+    .on('data', chunk => body += chunk)
+    .on('end', () => {
+      if (!body) return cb(null);
+      try {
+        cb(JSON.parse(body), body)
+      } catch (e) {
+        console.warn('body could not be parsed', e);
+        cb(null);
+      }
+    });
 }
 
 function current(req, res) {
@@ -184,8 +184,8 @@ function validateSignature(req, res, raw) {
 
   const signature = req.headers['X-Hub-Signature'];
   const expectedSignature = createHmac('sha256', process.env.TWITCH_CLIENT_SECRET)
-      .update(raw)
-      .digest('hex');
+    .update(raw)
+    .digest('hex');
 
   if (signature !== `sha256=${expectedSignature}`) {
     console.error('Invalid signature.');
