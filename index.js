@@ -17,7 +17,6 @@ const args = '|' + process.argv.slice(2).join('|') + '|';
 const port = assert(() => args.match(/\|--?p(?:ort)? ?([0-9]+)\|/)[1], 9999);
 const help = assert(() => args.match(/\|--?h(?:elp)?\|/) != null, false);
 const verifySignature = args.indexOf('|--no-signature|') === -1;
-const secret = process.env.TWITCH_WEBHOOK_SECRET;
 const streams = assert(() => JSON.parse(fs.readFileSync(cacheFilePath).toString()), []);
 const hostname = assert(() => args.match(/\|--host (?:https?:\/\/)(.+?)\/?\|/)[1], 'localhost:9999');
 
@@ -29,8 +28,8 @@ if (help) {
     and is read on next startup.
 
     ${bold('ENVIRONMENT')}
-    Environment variable ${bold('TWITCH_WEBHOOK_SECRET')}
-    is expected to hold your Twitch Webhook secret.
+    ${bold('TWITCH_CLIENT_SECRET')}   Twitch API client secret
+    ${bold('TWITCH_CLIENT_ID')}       Twitch API client ID
     
     ${bold('OPTIONS')}
     ${bold('--no-signature')}   Skip signature check
@@ -42,8 +41,13 @@ if (help) {
   process.exit(0);
 }
 
-if (!secret && verifySignature) {
-  console.error('Please provide a secret via environment variable: TWITCH_WEBHOOK_SECRET');
+if (!process.env.TWITCH_CLIENT_SECRET || !process.env.TWITCH_CLIENT_ID) {
+  console.error('You did not provide required environment variables.');
+  process.exit(1);
+}
+
+if (!process.env.TWITCH_CLIENT_SECRET && verifySignature) {
+  console.error('Please provide a secret via environment variable.');
   process.exit(1);
 }
 
@@ -129,8 +133,8 @@ function subUnsub(req, res, subUnsubAction) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'client-id': 'yourClientId',
-      'Authorization': 'Bearer yourToken'
+      'client-id': process.env.TWITCH_CLIENT_ID,
+      'Authorization': 'Bearer yourToken' // todo this whole script should do authentication on its own
     }
   };
 
@@ -149,7 +153,7 @@ function subUnsub(req, res, subUnsubAction) {
     "hub.callback": `http://${hostname}/consume/${userId}`,
     "hub.mode": subUnsubAction,
     "hub.topic": `https://api.twitch.tv/helix/streams?user_id=${userId}`,
-    "hub.secret": secret,
+    "hub.secret": process.env.TWITCH_CLIENT_SECRET,
     "hub.lease_seconds": 864000,
   }));
   twitchReq.end()
@@ -179,7 +183,7 @@ function validateSignature(req, res, raw) {
   if (!verifySignature) return true;
 
   const signature = req.headers['X-Hub-Signature'];
-  const expectedSignature = createHmac('sha256', secret)
+  const expectedSignature = createHmac('sha256', process.env.TWITCH_CLIENT_SECRET)
       .update(raw)
       .digest('hex');
 
