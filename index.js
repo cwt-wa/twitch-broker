@@ -16,11 +16,11 @@ const assert = (expression, fallback) => {
 };
 
 const args = '|' + process.argv.slice(2).join('|') + '|';
-const port = assert(() => args.match(/\|--?p(?:ort)? ?([0-9]+)\|/)[1], 9999);
+const port = assert(() => args.match(/\|--?p(?:ort)?\|([0-9]+)\|/)[1], 9999);
 const help = assert(() => args.match(/\|--?h(?:elp)?\|/) != null, false);
 const verifySignature = args.indexOf('|--no-signature|') === -1;
 const streams = assert(() => JSON.parse(fs.readFileSync(cacheFilePath).toString()), []);
-const hostname = assert(() => args.match(/\|--host (?:https?:\/\/)(.+?)\/?\|/)[1], 'localhost:9999');
+const hostname = assert(() => args.match(/\|--host\|(https?:\/\/.+?\/?)\|/)[1], 'http://localhost');
 
 if (help) {
   console.info(`
