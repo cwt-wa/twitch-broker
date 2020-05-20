@@ -146,7 +146,7 @@ function consume(req, res, body, raw) {
   }
 
   if (!validateContentLength(req, res, raw)) return;
-  if (!validateSignature()) return;
+  if (!validateSignature(req, res, raw)) return;
 
   if (body.data.length !== 0) {
     let newStreams = body.data
