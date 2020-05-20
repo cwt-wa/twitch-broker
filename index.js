@@ -22,6 +22,9 @@ const verifySignature = args.indexOf('|--no-signature|') === -1;
 const streams = assert(() => JSON.parse(fs.readFileSync(cacheFilePath).toString()), []);
 const hostname = assert(() => args.match(/\|--host\|(https?:\/\/.+?\/?)\|/)[1], 'http://localhost');
 
+console.info('running on port', port);
+console.info('exposing as hostname', hostname);
+
 if (help) {
   console.info(`
     ${bold('CACHE')}
