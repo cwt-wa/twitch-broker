@@ -145,6 +145,8 @@ function consume(req, res, body, raw) {
     return endWithCode(res, 202, hubCallback);
   }
 
+  console.log("There's a consumption", body);
+
   if (!validateContentLength(req, res, raw)) return;
   if (!validateSignature(req, res, raw)) return;
 
@@ -202,6 +204,7 @@ function subUnsub(req, res, subUnsubAction) {
     'https://api.twitch.tv/helix/webhooks/hub',
     options, (twitchRes) => {
       bodify(twitchRes, body => {
+        console.info("Subscription response", body);
         console.info(`${subUnsubAction}d to ${userId} with HTTP status ${twitchRes.statusCode}`);
         endWithCode(res, 200);
       });
@@ -243,7 +246,10 @@ function current(req, res) {
 }
 
 function validateSignature(req, res, raw) {
-  if (!verifySignature) return true;
+  if (!verifySignature) {
+    console.log('Skipping signature verification');
+    return true;
+  }
 
   const signature = req.headers['X-Hub-Signature'];
   const expectedSignature = createHmac('sha256', process.env.TWITCH_CLIENT_SECRET)
