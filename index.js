@@ -37,10 +37,10 @@ if (help) {
     ${bold('TWITCH_CLIENT_ID')}       Twitch API client ID
     
     ${bold('OPTIONS')}
-    ${bold('--no-signature')}   Skip signature check
-    ${bold('--port 80')}        Run on port 80 (defaults to 9999)
-    ${bold('--host abc.com')}   This server's hostname (defaults to localhost)
-    ${bold('--help')}           Display this help
+    ${bold('--no-signature')}          Skip signature check
+    ${bold('--port 80')}               Run on port 80 (defaults to 9999)
+    ${bold('--host http://abc.com')}   This server's hostname (defaults to http://localhost)
+    ${bold('--help')}                  Display this help
   `);
 
   process.exit(0);
@@ -139,7 +139,7 @@ Payload: ${body && JSON.stringify(body)}`);
 }).listen(port);
 
 function consume(req, res, body, raw) {
-  const hubCallback = new URL(req.url, `http://${hostname}`).searchParams.get('hub.challenge');
+  const hubCallback = new URL(req.url, hostname).searchParams.get('hub.challenge');
   if (hubCallback != null) {
     console.info('Verifying callback.', hubCallback);
     return endWithCode(res, 202, hubCallback);
@@ -209,8 +209,11 @@ function subUnsub(req, res, subUnsubAction) {
 
   twitchReq.on('error', console.error);
 
+  const callbackUrl = `${hostname}/consume/${userId}`;
+  console.log('callbackUrl', callbackUrl);
+
   twitchReq.write(JSON.stringify({
-    "hub.callback": `http://${hostname}/consume/${userId}`,
+    "hub.callback": callbackUrl,
     "hub.mode": subUnsubAction,
     "hub.topic": `https://api.twitch.tv/helix/streams?user_id=${userId}`,
     "hub.secret": process.env.TWITCH_CLIENT_SECRET,
