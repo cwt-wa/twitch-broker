@@ -211,7 +211,7 @@ function consume(req, res, body, raw) {
       user_name: e.user_name
     })))
   } else { // stream's gone off
-    const userId = url.searchParams.get('user_id');
+    const userId = userIdFromUrl(req.url);
     if (userId == null) return endWithCode(res, 404);
     let idxOfToBeRemovedStream = streams.findIndex(s => s.user_id === userId);
     while (idxOfToBeRemovedStream !== -1) {
@@ -271,7 +271,7 @@ function subUnsub(userId, subUnsubAction, res) {
       });
     });
   twitchReq.on('error', console.error);
-  const callbackUrl = `${hostname}/consume`;
+  const callbackUrl = `${hostname}/consume/${userId}`;
   console.log('callbackUrl', callbackUrl);
   const topic = `https://api.twitch.tv/helix/streams?user_id=${userId}`;
   console.info(`${subUnsubAction} `, topic);
