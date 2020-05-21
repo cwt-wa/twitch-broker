@@ -225,12 +225,13 @@ function consume(req, res, body, raw) {
 }
 
 function produce(req, res) {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+  });
+  res.write('\n');
   res.write(asEvent(streams));
-
   const eventListener = () => res.write(asEvent(streams));
   eventEmitter.addListener('stream', eventListener);
   res.on('close', () => eventEmitter.removeListener('stream', eventListener))
