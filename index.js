@@ -61,7 +61,7 @@ eventEmitter.setMaxListeners(Infinity); // uh oh
 
 let accessToken;
 
-async function authenticate() {
+async function retrieveAccessToken() {
   let promiseResolver;
   const promise = new Promise(resolve => promiseResolver = resolve);
   const queryParams = querystring.stringify({
@@ -106,15 +106,9 @@ async function validateAccessToken() {
 const server = http.createServer(async (req, res) => {
   if (req.url === '/favicon.ico') return endWithCode(res, 404);
 
-  if (!accessToken) {
-    console.info("There's no accessToken, requesting from Twitch.");
-    await authenticate();
-  } else {
-    console.info("Access token exists, let's validate.");
-    const validateRes = await validateAccessToken();
-    if (!validateRes.res.statusCode.toString().startsWith('2')) {
-      await authenticate();
-    }
+  const validateRes = await validateAccessToken();
+  if (!validateRes.res.statusCode.toString().startsWith('2')) {
+    await retrieveAccessToken();
   }
 
   bodify(req, (body, raw) => {
@@ -137,7 +131,10 @@ Payload: ${body && JSON.stringify(body)}`);
   });
 }).listen(port);
 
-(async () => subUnsub(await retrieveChannels()))();
+(async () => {
+  await retrieveAccessToken();
+  subUnsub(await retrieveChannels(), 'subscribe');
+})();
 
 function consume(req, res, body, raw) {
   const hubCallback = new URL(req.url, hostname).searchParams.get('hub.challenge');
