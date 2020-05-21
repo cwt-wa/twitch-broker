@@ -95,7 +95,7 @@ async function validateAccessToken() {
     },
     (twitchRes) => {
       bodify(twitchRes, body => {
-        console.info('Response from validating access token', body);
+        console.info('validating access token', twitchRes.statusCode);
         promiseResolver({res: twitchRes, body});
       });
     }).end();
