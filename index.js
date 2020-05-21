@@ -268,7 +268,7 @@ function retrieveChannels() {
   https.get('https://cwtsite.com/api/channel',
     (twitchRes) => {
       bodify(twitchRes, body => {
-        console.info('Channels are', body.map(c => c.display_name));
+        console.info('Channels are', body.map(c => c.displayName));
         promiseResolver(body);
       });
     });
