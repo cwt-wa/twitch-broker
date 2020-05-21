@@ -264,7 +264,7 @@ function validateSignature(req, res, raw) {
 function retrieveChannels() {
   let promiseResolver;
   const promise = new Promise(resolve => promiseResolver = resolve);
-  https.request('https://cwtsite.com/api/channel',
+  https.get('https://cwtsite.com/api/channel',
     (twitchRes) => {
       bodify(twitchRes, body => {
         const channelIds = body.map(c => c.id);
