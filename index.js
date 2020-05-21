@@ -73,7 +73,6 @@ async function retrieveAccessToken() {
     `https://id.twitch.tv/oauth2/token?${queryParams}`,
     {method: 'POST'},
     (twitchRes) => {
-      console.log("There's been a response now.");
       bodify(twitchRes, body => {
         console.info('Response from access token request', body);
         accessToken = body.access_token;
