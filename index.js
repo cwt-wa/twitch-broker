@@ -33,8 +33,8 @@ if (help) {
     and is read on next startup.
 
     ${bold('ENVIRONMENT')}
-    ${bold('TWITCH_CLIENT_SECRET')}   Twitch API client secret
-    ${bold('TWITCH_CLIENT_ID')}       Twitch API client ID
+    ${bold('TWITCH_CLIENT_SECRET')}    Twitch API client secret
+    ${bold('TWITCH_CLIENT_ID')}        Twitch API client ID
     
     ${bold('OPTIONS')}
     ${bold('--no-signature')}          Skip signature check
@@ -128,8 +128,7 @@ Payload: ${body && JSON.stringify(body)}`);
       if (req.url.startsWith('/consume')) consume(req, res, body, raw);
       else if (req.url === '/produce') produce(req, res);
       else if (req.url === '/current') current(req, res);
-      else if (req.url.startsWith('/subscribe')) subUnsub(req, res, 'subscribe');
-      else if (req.url.startsWith('/unsubscribe')) subUnsub(req, res, 'unsubscribe');
+      else if (req.url.startsWith('/subscribe')) subUnsub([userIdFromUrl(req.url)], res, 'subscribe');
       else endWithCode(res, 404)
     } catch (e) {
       console.error(e);
@@ -137,6 +136,8 @@ Payload: ${body && JSON.stringify(body)}`);
     }
   });
 }).listen(port);
+
+(async () => subUnsub(await retrieveChannels()))();
 
 function consume(req, res, body, raw) {
   const hubCallback = new URL(req.url, hostname).searchParams.get('hub.challenge');
@@ -151,7 +152,7 @@ function consume(req, res, body, raw) {
   if (!validateSignature(req, res, raw)) return;
 
   if (body.data.length !== 0) {
-    let newStreams = body.data
+    const newStreams = body.data
       .filter(e => streams.map(s => s.event_id).indexOf(e.id) === -1)
       .filter(e => cwtInTitle(e.title));
     if (newStreams.length === 0) return endWithCode(res, 200);
@@ -163,7 +164,7 @@ function consume(req, res, body, raw) {
       user_name: e.user_name
     })))
   } else { // stream's gone off
-    const userId = userIdFromUrl(req.url);
+    const userId = new URL(req.url, hostname).searchParams.get('user_id');
     if (userId == null) return endWithCode(res, 404);
     let idxOfToBeRemovedStream = streams.findIndex(s => s.user_id === userId);
     while (idxOfToBeRemovedStream !== -1) {
@@ -188,9 +189,11 @@ function produce(req, res) {
   res.on('close', () => eventEmitter.removeListener('stream', eventListener))
 }
 
-function subUnsub(req, res, subUnsubAction) {
-  const userId = userIdFromUrl(req.url);
-  if (userId == null) return endWithCode(res, 404);
+function subUnsub(userIds, subUnsubAction) {
+  if (!userIds || !userIds.length) {
+    console.warn("There are no channel to subscribe to.");
+    return;
+  }
   const options = {
     method: 'POST',
     headers: {
@@ -199,26 +202,24 @@ function subUnsub(req, res, subUnsubAction) {
       'Authorization': `Bearer ${accessToken}`
     }
   };
-
   const twitchReq = https.request(
     'https://api.twitch.tv/helix/webhooks/hub',
     options, (twitchRes) => {
       bodify(twitchRes, body => {
         console.info("Subscription response", body);
-        console.info(`${subUnsubAction}d to ${userId} with HTTP status ${twitchRes.statusCode}`);
+        console.info(`${subUnsubAction}d to ${userIds} with HTTP status ${twitchRes.statusCode}`);
         endWithCode(res, 200);
       });
     });
-
   twitchReq.on('error', console.error);
-
-  const callbackUrl = `${hostname}/consume/${userId}`;
+  const callbackUrl = `${hostname}/consume`;
   console.log('callbackUrl', callbackUrl);
-
+  const topic = `https://api.twitch.tv/helix/streams?${new URLSearchParams(userIds.map(id => ["user_id", id]))}`;
+  console.info("Subscribing to", topic);
   twitchReq.write(JSON.stringify({
     "hub.callback": callbackUrl,
     "hub.mode": subUnsubAction,
-    "hub.topic": `https://api.twitch.tv/helix/streams?user_id=${userId}`,
+    "hub.topic": topic,
     "hub.secret": process.env.TWITCH_CLIENT_SECRET,
     "hub.lease_seconds": 864000,
   }));
@@ -262,6 +263,20 @@ function validateSignature(req, res, raw) {
     endWithCode(res, 400);
     return false
   }
+}
+
+function retrieveChannels() {
+  let promiseResolver;
+  const promise = new Promise(resolve => promiseResolver = resolve);
+  https.request('https://cwtsite.com/api/channel',
+    (twitchRes) => {
+      bodify(twitchRes, body => {
+        const channelIds = body.map(c => c.id);
+        console.info('Channels are', channelIds);
+        promiseResolver(channelIds);
+      });
+    });
+  return promise;
 }
 
 function validateContentLength(req, res, raw) {
