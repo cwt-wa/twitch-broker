@@ -121,7 +121,7 @@ Payload: ${body && JSON.stringify(body)}`);
       if (req.url.startsWith('/consume')) consume(req, res, body, raw);
       else if (req.url === '/produce') produce(req, res);
       else if (req.url === '/current') current(req, res);
-      else if (req.url.startsWith('/subscribe')) subUnsub([userIdFromUrl(req.url)], res, 'subscribe');
+      else if (req.url.startsWith('/subscribe')) subUnsub([userIdFromUrl(req.url)], 'subscribe', res);
       else endWithCode(res, 404)
     } catch (e) {
       console.error(e);
@@ -185,7 +185,7 @@ function produce(req, res) {
   res.on('close', () => eventEmitter.removeListener('stream', eventListener))
 }
 
-function subUnsub(userIds, subUnsubAction) {
+function subUnsub(userIds, subUnsubAction, res) {
   if (!userIds || !userIds.length) {
     console.warn("There are no channel to subscribe to.");
     return;
@@ -204,7 +204,7 @@ function subUnsub(userIds, subUnsubAction) {
       bodify(twitchRes, body => {
         console.info("Subscription response", body);
         console.info(`${subUnsubAction}d to ${userIds} with HTTP status ${twitchRes.statusCode}`);
-        endWithCode(res, 200);
+        res && endWithCode(res, 200);
       });
     });
   twitchReq.on('error', console.error);
