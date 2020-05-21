@@ -121,7 +121,7 @@ Payload: ${body && JSON.stringify(body)}`);
       if (req.url.startsWith('/consume')) consume(req, res, body, raw);
       else if (req.url === '/produce') produce(req, res);
       else if (req.url === '/current') current(req, res);
-      else if (req.url.startsWith('/subscribe')) subUnsub([userIdFromUrl(req.url)], 'subscribe', res);
+      else if (req.url.startsWith('/subscribe')) subUnsub(userIdFromUrl(req.url), 'subscribe', res);
       else endWithCode(res, 404)
     } catch (e) {
       console.error(e);
@@ -132,7 +132,7 @@ Payload: ${body && JSON.stringify(body)}`);
 
 (async () => {
   await retrieveAccessToken();
-  subUnsub(await retrieveChannels(), 'subscribe');
+  (await retrieveChannels()).forEach(c => subUnsub(c.id, 'subscribe'));
 })();
 
 function consume(req, res, body, raw) {
@@ -185,9 +185,10 @@ function produce(req, res) {
   res.on('close', () => eventEmitter.removeListener('stream', eventListener))
 }
 
-function subUnsub(userIds, subUnsubAction, res) {
-  if (!userIds || !userIds.length) {
-    console.warn("There are no channel to subscribe to.");
+function subUnsub(userId, subUnsubAction, res) {
+  if (!userId) {
+    console.warn("No channel to subscribe to.");
+    res && endWithCode(res, 404);
     return;
   }
   const options = {
@@ -203,14 +204,14 @@ function subUnsub(userIds, subUnsubAction, res) {
     options, (twitchRes) => {
       bodify(twitchRes, body => {
         console.info("Subscription response", body);
-        console.info(`${subUnsubAction}d to ${userIds} with HTTP status ${twitchRes.statusCode}`);
+        console.info(`${subUnsubAction}d to ${userId} with HTTP status ${twitchRes.statusCode}`);
         res && endWithCode(res, 200);
       });
     });
   twitchReq.on('error', console.error);
   const callbackUrl = `${hostname}/consume`;
   console.log('callbackUrl', callbackUrl);
-  const topic = `https://api.twitch.tv/helix/streams?${new URLSearchParams(userIds.map(id => ["user_id", id]))}`;
+  const topic = `https://api.twitch.tv/helix/streams?user_id=${userId}`;
   console.info("Subscribing to", topic);
   twitchReq.write(JSON.stringify({
     "hub.callback": callbackUrl,
@@ -267,9 +268,8 @@ function retrieveChannels() {
   https.get('https://cwtsite.com/api/channel',
     (twitchRes) => {
       bodify(twitchRes, body => {
-        const channelIds = body.map(c => c.id);
-        console.info('Channels are', channelIds);
-        promiseResolver(channelIds);
+        console.info('Channels are', body.map(c => c.display_name));
+        promiseResolver(body);
       });
     });
   return promise;
