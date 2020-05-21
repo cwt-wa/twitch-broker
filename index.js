@@ -5,7 +5,7 @@ const fs = require('fs');
 const {EventEmitter} = require('events');
 const {createHmac} = require('crypto');
 
-const cacheFilePath = '/tmp/nodejs-sse.json';
+const cacheFilePath = __dirname + '/nodejs-sse.json';
 const cwtInTitle = title => title.match(/\bcwt\b/i) !== null;
 const userIdFromUrl = url => url.split('/')[2];
 const asEvent = payload => 'data: ' + JSON.stringify(payload) + '\n\n';
