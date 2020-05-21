@@ -60,6 +60,9 @@ const eventEmitter = new EventEmitter();
 eventEmitter.setMaxListeners(Infinity); // uh oh
 
 let accessToken;
+const leaseSeconds = 864000;
+const subscriptions = [];
+let shutdown;
 
 async function retrieveAccessToken() {
   let promiseResolver;
@@ -77,6 +80,25 @@ async function retrieveAccessToken() {
         console.info('Response from access token request', body);
         accessToken = body.access_token;
         promiseResolver({res: twitchRes, body});
+      });
+    }).end();
+  return promise;
+}
+
+async function revokeAccessToken() {
+  let promiseResolver;
+  const promise = new Promise(resolve => promiseResolver = resolve);
+  const queryParams = querystring.stringify({
+    "client_id": process.env.TWITCH_CLIENT_ID,
+    "token": accessToken,
+  });
+  https.request(
+    `https://id.twitch.tv/oauth2/revoke?${queryParams}`,
+    {method: 'POST'},
+    (twitchRes) => {
+      bodify(twitchRes, body => {
+        console.info("Revoking access token response", twitchRes.statusCode, body);
+        promiseResolver();
       });
     }).end();
   return promise;
@@ -122,6 +144,7 @@ Payload: ${body && JSON.stringify(body)}`);
       else if (req.url === '/produce') produce(req, res);
       else if (req.url === '/current') current(req, res);
       else if (req.url.startsWith('/subscribe')) subUnsub(userIdFromUrl(req.url), 'subscribe', res);
+      else if (req.url.startsWith('/unsubscribe')) subUnsub(userIdFromUrl(req.url), 'unsubscribe', res);
       else endWithCode(res, 404)
     } catch (e) {
       console.error(e);
@@ -132,13 +155,41 @@ Payload: ${body && JSON.stringify(body)}`);
 
 (async () => {
   await retrieveAccessToken();
-  (await retrieveChannels()).forEach(c => subUnsub(c.id, 'subscribe'));
+  await subscribeToAllChannels();
 })();
 
+async function subscribeToAllChannels() {
+  const allChannels = await retrieveChannels();
+  for (const c of allChannels) {
+    try {
+      await subUnsub(c.id, 'subscribe');
+      console.info(`Subscribed to ${c.displayName} (${c.id})`);
+    } catch (e) {
+      console.error(`Couldn't subscribe to ${c.displayName} (${c.id})`)
+    }
+  }
+  setTimeout(() => subscribeToAllChannels(), leaseSeconds * 1000);
+}
+
 function consume(req, res, body, raw) {
-  const hubCallback = new URL(req.url, hostname).searchParams.get('hub.challenge');
+  const url = new URL(req.url, hostname);
+  const hubCallback = url.searchParams.get('hub.challenge');
   if (hubCallback != null) {
     console.info('Verifying callback.', hubCallback);
+    const hubMode = url.searchParams.get('hub.mode');
+    const hubUserId = new URL(decodeURIComponent(
+      url.searchParams.get('hub.topic'))).searchParams.get('user_id');
+    if (hubMode === 'unsubscribe') {
+      subscriptions.splice(
+        subscriptions.indexOf(
+          hubUserId),
+        1);
+      if (subscriptions.length === 0 && shutdown != null) {
+        shutdown();
+      }
+    } else if (hubMode === 'subscribe') {
+      subscriptions.push(hubUserId);
+    }
     return endWithCode(res, 202, hubCallback);
   }
 
@@ -160,7 +211,7 @@ function consume(req, res, body, raw) {
       user_name: e.user_name
     })))
   } else { // stream's gone off
-    const userId = new URL(req.url, hostname).searchParams.get('user_id');
+    const userId = url.searchParams.get('user_id');
     if (userId == null) return endWithCode(res, 404);
     let idxOfToBeRemovedStream = streams.findIndex(s => s.user_id === userId);
     while (idxOfToBeRemovedStream !== -1) {
@@ -186,10 +237,16 @@ function produce(req, res) {
 }
 
 function subUnsub(userId, subUnsubAction, res) {
+  let resolvePromise;
+  let rejectPromise;
+  const promise = new Promise((resolve, reject) => {
+    resolvePromise = resolve;
+    rejectPromise = reject;
+  });
   if (!userId) {
     console.warn("No channel to subscribe to.");
     res && endWithCode(res, 404);
-    return;
+    return Promise.reject("No channel to subscribe to.");
   }
   const options = {
     method: 'POST',
@@ -203,8 +260,12 @@ function subUnsub(userId, subUnsubAction, res) {
     'https://api.twitch.tv/helix/webhooks/hub',
     options, (twitchRes) => {
       bodify(twitchRes, body => {
-        console.info("Subscription response", body);
         console.info(`${subUnsubAction}d to ${userId} with HTTP status ${twitchRes.statusCode}`);
+        if (twitchRes.statusCode.toString().startsWith('2')) {
+          resolvePromise();
+        } else {
+          rejectPromise();
+        }
         res && endWithCode(res, 200);
       });
     });
@@ -212,15 +273,16 @@ function subUnsub(userId, subUnsubAction, res) {
   const callbackUrl = `${hostname}/consume`;
   console.log('callbackUrl', callbackUrl);
   const topic = `https://api.twitch.tv/helix/streams?user_id=${userId}`;
-  console.info("Subscribing to", topic);
+  console.info(`${subUnsubAction} `, topic);
   twitchReq.write(JSON.stringify({
     "hub.callback": callbackUrl,
     "hub.mode": subUnsubAction,
     "hub.topic": topic,
     "hub.secret": process.env.TWITCH_CLIENT_SECRET,
-    "hub.lease_seconds": 864000,
+    "hub.lease_seconds": leaseSeconds,
   }));
-  twitchReq.end()
+  twitchReq.end();
+  return promise;
 }
 
 function bodify(req, cb) {
@@ -304,12 +366,32 @@ function endWithCode(res, code, payload) {
   res.end(payload)
 }
 
-function shutdownHook() {
+async function tearDown(code) {
+  await revokeAccessToken();
   server.close(console.error);
   fs.writeFileSync(cacheFilePath, JSON.stringify(streams));
-  console.info('Exiting');
-  process.exit(0)
+  process.exit(code);
 }
 
-['SIGINT', 'SIGTERM', 'SIGQUIT'].forEach(sig => process.on(sig, shutdownHook));
+['SIGINT', 'SIGTERM', 'SIGQUIT'].forEach(sig => process.on(sig, async () => {
+  const timeout = setTimeout(async () => {
+    console.error(
+      "Exiting with code 2 because of timeout. " +
+      "Not all subscriptions have been unsubscribed.");
+    await tearDown();
+    process.exit(2);
+  }, 10000);
+  new Promise(resolve => shutdown = resolve)
+    .then(async () => {
+      clearTimeout(timeout);
+      console.info("All subscriptions have been successfully unsubscribed. Exiting");
+      await tearDown(0);
+    })
+    .catch(async () => {
+      clearTimeout(timeout);
+      console.info("Some or all subscription have failed to unsubscribe. Exiting");
+      await tearDown(1);
+    });
+  subscriptions.forEach(s => subUnsub(s, 'unsubscribe'));
+}));
 
