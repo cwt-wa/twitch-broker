@@ -200,12 +200,12 @@ function consume(req, res, body, raw) {
 
   if (body.data.length !== 0) {
     const newStreams = body.data
-      .filter(e => !streams.map(s => s.event_id).includes(e.id))
+      .filter(e => !streams.map(s => s.id).includes(e.id))
       .filter(e => cwtInTitle(e.title));
     if (newStreams.length === 0) return endWithCode(res, 200);
 
     streams.push(...body.data.map(e => ({
-      event_id: e.id,
+      id: e.id,
       title: e.title,
       user_id: e.user_id,
       user_name: e.user_name
