@@ -4,7 +4,6 @@ const fs = require('fs');
 const {EventEmitter} = require('events');
 const {createHmac} = require('crypto');
 
-const cacheFilePath = __dirname + '/nodejs-sse.json';
 const cwtInTitle = title => title.match(/\bcwt\b/i) !== null;
 const userIdFromUrl = url => url.split('/')[2];
 const asEvent = payload => 'data: ' + JSON.stringify(payload) + '\n\n';
@@ -26,11 +25,6 @@ console.info('exposing as hostname', hostname);
 
 if (help) {
   console.info(`
-    ${bold('CACHE')}
-    Upon exiting the program the current state
-    is serialized to ${bold(cacheFilePath)}
-    and is read on next startup.
-
     ${bold('ENVIRONMENT')}
     ${bold('TWITCH_CLIENT_SECRET')}    Twitch API client secret
     ${bold('TWITCH_CLIENT_ID')}        Twitch API client ID
@@ -436,7 +430,6 @@ function endWithCode(res, code, payload) {
 async function tearDown(code) {
   await revokeAccessToken();
   server.close(console.error);
-  fs.writeFileSync(cacheFilePath, JSON.stringify(streams));
   process.exit(code);
 }
 
