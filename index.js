@@ -193,7 +193,7 @@ async function subscribeToAllChannels(res) {
     }
   }
   setTimeout(() => subscribeToAllChannels(), leaseSeconds * 1000);
-  res && endWithCode(200, res, {success, failure});
+  res && endWithCode(res, 200, {success, failure});
 }
 
 function consume(req, res, body, raw) {
