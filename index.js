@@ -18,7 +18,7 @@ const args = '|' + process.argv.slice(2).join('|') + '|';
 const port = assert(() => args.match(/\|--?p(?:ort)?\|([0-9]+)\|/)[1], 9999);
 const help = assert(() => args.match(/\|--?h(?:elp)?\|/) != null, false);
 const verifySignature = args.indexOf('|--no-signature|') === -1;
-const noCurrentTournamentCheck = args.indexOf('|--no-current-check|') === -1;
+const currentTournamentCheck = args.indexOf('|--no-current-check|') === -1;
 const hostname = assert(() => args.match(/\|--host\|(https?:\/\/.+?\/?)\|/)[1], 'http://localhost');
 
 console.info('running on port', port);
@@ -161,20 +161,20 @@ Payload: ${body && JSON.stringify(body)}`);
 (async () => {
   await retrieveAccessToken();
   createServer();
-  if (noCurrentTournamentCheck) {
-    console.info("Skipping check if there's currently a CWT tournament ongoing.");
-    await subscribeToAllChannels();
-    streams.push(...await retrieveCurrentStreams(subscriptions));
-  } else {
+  if (currentTournamentCheck) {
     console.info("Checking if CWT is currently in group or playoff stage.");
     const currentTournament = await retrieveCurrentTournament();
     if (currentTournament && currentTournament.status
-        && ['GROUP', 'PLAYOFFS'].includes(currentTournament.status)) {
+      && ['GROUP', 'PLAYOFFS'].includes(currentTournament.status)) {
       await subscribeToAllChannels();
       streams.push(...await retrieveCurrentStreams(subscriptions));
     } else {
       console.info("There's currently no tournament so am not expecting any streams.");
     }
+  } else {
+    console.info("Skipping check if there's currently a CWT tournament ongoing.");
+    await subscribeToAllChannels();
+    streams.push(...await retrieveCurrentStreams(subscriptions));
   }
 })();
 
