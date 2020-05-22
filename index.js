@@ -1,6 +1,5 @@
 const http = require('http');
 const https = require('https');
-const querystring = require('querystring');
 const fs = require('fs');
 const {EventEmitter} = require('events');
 const {createHmac} = require('crypto');
@@ -67,7 +66,7 @@ let shutdown;
 async function retrieveAccessToken() {
   let promiseResolver;
   const promise = new Promise(resolve => promiseResolver = resolve);
-  const queryParams = querystring.stringify({
+  const queryParams = new URLSearchParams({
     "client_id": process.env.TWITCH_CLIENT_ID,
     "client_secret": process.env.TWITCH_CLIENT_SECRET,
     "grant_type": "client_credentials",
@@ -88,7 +87,7 @@ async function retrieveAccessToken() {
 async function revokeAccessToken() {
   let promiseResolver;
   const promise = new Promise(resolve => promiseResolver = resolve);
-  const queryParams = querystring.stringify({
+  const queryParams = new URLSearchParams({
     "client_id": process.env.TWITCH_CLIENT_ID,
     "token": accessToken,
   });
