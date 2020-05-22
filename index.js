@@ -154,9 +154,12 @@ Payload: ${body && JSON.stringify(body)}`);
 
 (async () => {
   await retrieveAccessToken();
-  await subscribeToAllChannels();
+  await subscribeToAllChannels(); // todo only when there's currently a tournament
   streams.push(...await retrieveCurrentStreams(subscriptions));
 })();
+
+// todo create endpoint here which CWT can call to subscribe to all channels
+//  when a new tournament has started
 
 async function subscribeToAllChannels() {
   const allChannels = await retrieveChannels();
