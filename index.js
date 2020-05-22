@@ -18,6 +18,7 @@ const args = '|' + process.argv.slice(2).join('|') + '|';
 const port = assert(() => args.match(/\|--?p(?:ort)?\|([0-9]+)\|/)[1], 9999);
 const help = assert(() => args.match(/\|--?h(?:elp)?\|/) != null, false);
 const verifySignature = args.indexOf('|--no-signature|') === -1;
+const noCurrentTournamentCheck = args.indexOf('|--no-current-check|') === -1;
 const hostname = assert(() => args.match(/\|--host\|(https?:\/\/.+?\/?)\|/)[1], 'http://localhost');
 
 console.info('running on port', port);
@@ -36,6 +37,7 @@ if (help) {
     
     ${bold('OPTIONS')}
     ${bold('--no-signature')}          Skip signature check
+    ${bold('--no-current-check')}      Subscribe to Webhook even if there's not CWT tournament
     ${bold('--port 80')}               Run on port 80 (defaults to 9999)
     ${bold('--host http://abc.com')}   This server's hostname (defaults to http://localhost)
     ${bold('--help')}                  Display this help
@@ -154,8 +156,21 @@ Payload: ${body && JSON.stringify(body)}`);
 
 (async () => {
   await retrieveAccessToken();
-  await subscribeToAllChannels(); // todo only when there's currently a tournament
-  streams.push(...await retrieveCurrentStreams(subscriptions));
+  if (noCurrentTournamentCheck) {
+    console.info("Skipping check if there's currently a CWT tournament ongoing.");
+    await subscribeToAllChannels();
+    streams.push(...await retrieveCurrentStreams(subscriptions));
+  } else {
+    console.info("Checking if CWT is currently in group or playoff stage.");
+    const currentTournament = await retrieveCurrentTournament();
+    if (currentTournament && currentTournament.status
+        && ['GROUP', 'PLAYOFFS'].includes(currentTournament.status)) {
+      await subscribeToAllChannels();
+      streams.push(...await retrieveCurrentStreams(subscriptions));
+    } else {
+      console.info("There's currently no tournament so am not expecting any streams.");
+    }
+  }
 })();
 
 // todo create endpoint here which CWT can call to subscribe to all channels
@@ -362,6 +377,18 @@ function retrieveChannels() {
       bodify(twitchRes, body => {
         console.info('Channels are', body.map(c => c.displayName));
         promiseResolver(body);
+      });
+    });
+  return promise;
+}
+
+function retrieveCurrentTournament() {
+  let resolvePromise;
+  const promise = new Promise(resolve => resolvePromise = resolve);
+  https.get('https://cwtsite.com/api/tournament/current',
+    (twitchRes) => {
+      bodify(twitchRes, body => {
+        resolvePromise(body);
       });
     });
   return promise;
