@@ -329,16 +329,25 @@ async function retrieveCurrentStreams(userIds) {
   let resolvePromise;
   const promise = new Promise(resolve => resolvePromise = resolve);
   const searchParams = new URLSearchParams(userIds.map(id => ['user_id', id]));
-  https.get(`https://api.twitch.tv/helix/streams?${searchParams}`, (req, res) => {
-    bodify(req, (raw, body) => {
-      resolvePromise(body.map(e => ({
-        id: e.id,
-        title: e.title,
-        user_id: e.user_id,
-        user_name: e.user_name
-      })));
-    })
-  });
+  https.get(
+    `https://api.twitch.tv/helix/streams?${searchParams}`,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        'client-id': process.env.TWITCH_CLIENT_ID,
+        'Authorization': `Bearer ${accessToken}`
+      }
+    },
+    req => {
+      bodify(req, (raw, body) => {
+        resolvePromise(body.map(e => ({
+          id: e.id,
+          title: e.title,
+          user_id: e.user_id,
+          user_name: e.user_name
+        })));
+      })
+    });
   return promise;
 }
 
