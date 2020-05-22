@@ -144,6 +144,7 @@ Payload: ${body && JSON.stringify(body)}`);
       if (req.url.startsWith('/consume')) consume(req, res, body, raw);
       else if (req.url === '/produce') produce(req, res);
       else if (req.url === '/current') current(req, res);
+      else if (req.url === '/subscribe-all') subscribeToAllChannels(res);
       else if (req.url.startsWith('/subscribe')) subUnsub(userIdFromUrl(req.url), 'subscribe', res);
       else if (req.url.startsWith('/unsubscribe')) subUnsub(userIdFromUrl(req.url), 'unsubscribe', res);
       else endWithCode(res, 404)
@@ -173,20 +174,22 @@ Payload: ${body && JSON.stringify(body)}`);
   }
 })();
 
-// todo create endpoint here which CWT can call to subscribe to all channels
-//  when a new tournament has started
-
-async function subscribeToAllChannels() {
+async function subscribeToAllChannels(res) {
+  const success = [];
+  const failure = [];
   const allChannels = await retrieveChannels();
   for (const c of allChannels) {
     try {
       await subUnsub(c.id, 'subscribe');
       console.info(`Subscribed to ${c.displayName} (${c.id})`);
+      success.push(c.id);
     } catch (e) {
       console.error(`Couldn't subscribe to ${c.displayName} (${c.id})`)
+      failure.push(c.id);
     }
   }
   setTimeout(() => subscribeToAllChannels(), leaseSeconds * 1000);
+  res && endWithCode(200, res, {success, failure});
 }
 
 function consume(req, res, body, raw) {
