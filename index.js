@@ -355,9 +355,10 @@ async function retrieveCurrentStreams(userIds) {
   const promise = new Promise(resolve => resolvePromise = resolve);
   const searchParams = new URLSearchParams(userIds.map(id => ['user_id', id]));
   console.info(`Requesting initial streams ${searchParams}`);
-  https.get(
+  https.request(
     `https://api.twitch.tv/helix/streams?${searchParams}`,
     {
+      method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'client-id': process.env.TWITCH_CLIENT_ID,
@@ -366,15 +367,15 @@ async function retrieveCurrentStreams(userIds) {
     },
     twitchRes => {
       bodify(twitchRes, body => {
-        console.info(`Response for initial streams ${body}`);
-        resolvePromise(body.map(e => ({
+        console.info("Response for initial streams", body);
+        resolvePromise(body.data.map(e => ({
           id: e.id,
           title: e.title,
           user_id: e.user_id,
           user_name: e.user_name
         })));
       })
-    });
+    }).end();
   return promise;
 }
 
