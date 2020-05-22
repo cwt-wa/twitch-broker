@@ -64,6 +64,7 @@ const leaseSeconds = 864000;
 const subscriptions = [];
 const streams = [];
 let shutdown;
+let server;
 
 async function retrieveAccessToken() {
   let promiseResolver;
@@ -125,38 +126,41 @@ async function validateAccessToken() {
   return promise;
 }
 
-const server = http.createServer(async (req, res) => {
-  if (req.url === '/favicon.ico') return endWithCode(res, 404);
+function createServer() {
+  server = http.createServer(async (req, res) => {
+    if (req.url === '/favicon.ico') return endWithCode(res, 404);
 
-  const validateRes = await validateAccessToken();
-  if (!validateRes.res.statusCode.toString().startsWith('2')) {
-    await retrieveAccessToken();
-  }
+    const validateRes = await validateAccessToken();
+    if (!validateRes.res.statusCode.toString().startsWith('2')) {
+      await retrieveAccessToken();
+    }
 
-  bodify(req, (body, raw) => {
-    try {
-      console.info(`
+    bodify(req, (body, raw) => {
+      try {
+        console.info(`
 ${req.method} ${req.url} at ${Date.now()}
 Headers: ${JSON.stringify(req.headers)}
 Payload: ${body && JSON.stringify(body)}`);
-      req.on('error', console.error);
-      cors(req, res);
-      if (req.url.startsWith('/consume')) consume(req, res, body, raw);
-      else if (req.url === '/produce') produce(req, res);
-      else if (req.url === '/current') current(req, res);
-      else if (req.url === '/subscribe-all') subscribeToAllChannels(res);
-      else if (req.url.startsWith('/subscribe')) subUnsub(userIdFromUrl(req.url), 'subscribe', res);
-      else if (req.url.startsWith('/unsubscribe')) subUnsub(userIdFromUrl(req.url), 'unsubscribe', res);
-      else endWithCode(res, 404)
-    } catch (e) {
-      console.error(e);
-      endWithCode(res, 500);
-    }
-  });
-}).listen(port);
+        req.on('error', console.error);
+        cors(req, res);
+        if (req.url.startsWith('/consume')) consume(req, res, body, raw);
+        else if (req.url === '/produce') produce(req, res);
+        else if (req.url === '/current') current(req, res);
+        else if (req.url === '/subscribe-all') subscribeToAllChannels(res);
+        else if (req.url.startsWith('/subscribe')) subUnsub(userIdFromUrl(req.url), 'subscribe', res);
+        else if (req.url.startsWith('/unsubscribe')) subUnsub(userIdFromUrl(req.url), 'unsubscribe', res);
+        else endWithCode(res, 404)
+      } catch (e) {
+        console.error(e);
+        endWithCode(res, 500);
+      }
+    });
+  }).listen(port);
+}
 
 (async () => {
   await retrieveAccessToken();
+  createServer();
   if (noCurrentTournamentCheck) {
     console.info("Skipping check if there's currently a CWT tournament ongoing.");
     await subscribeToAllChannels();
@@ -350,6 +354,7 @@ async function retrieveCurrentStreams(userIds) {
   let resolvePromise;
   const promise = new Promise(resolve => resolvePromise = resolve);
   const searchParams = new URLSearchParams(userIds.map(id => ['user_id', id]));
+  console.info(`Requesting initial streams ${searchParams}`);
   https.get(
     `https://api.twitch.tv/helix/streams?${searchParams}`,
     {
@@ -359,8 +364,9 @@ async function retrieveCurrentStreams(userIds) {
         'Authorization': `Bearer ${accessToken}`
       }
     },
-    req => {
-      bodify(req, (raw, body) => {
+    twitchRes => {
+      bodify(twitchRes, body => {
+        console.info(`Response for initial streams ${body}`);
         resolvePromise(body.map(e => ({
           id: e.id,
           title: e.title,
