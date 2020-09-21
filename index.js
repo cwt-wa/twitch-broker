@@ -156,8 +156,8 @@ Payload: ${body && JSON.stringify(body)}`);
 (async () => {
   await retrieveAccessToken();
   allChannels.push(...(await retrieveChannels()));
-  const userIds = await subscribeToAllChannels(allChannels.map(c => c.id));
-  console.info('userIds', userIds);
+  const userIds = allChannels.map(c => c.id)
+  await subscribeToAllChannels();
   createServer();
   if (currentTournamentCheck) {
     console.info("Checking if CWT is currently in group or playoff stage.");
@@ -389,7 +389,7 @@ function retrieveChannels() {
     https.get('https://cwtsite.com/api/channel',
       (twitchRes) => {
         bodify(twitchRes, body => {
-          console.info('Channels are', body.map(c => c.displayName));
+          console.info('Channels are', body.map(c => `${c.id} ${c.displayName}`));
           resolve(body);
         });
       });
