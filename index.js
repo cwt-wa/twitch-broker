@@ -218,20 +218,25 @@ function consume(req, res, body, raw) {
   if (!validateContentLength(req, res, raw)) return;
   if (!validateSignature(req, res, raw)) return;
 
+  console.info('All validation passed.');
+
   if (body.data.length !== 0) {
+    console.info("stream's gone online or maybe changed.");
     const newStreams = body.data
       .filter(e => !streams.map(s => s.id).includes(e.id))
-      .filter(e => cwtInTitle(e.title));
+      .filter(e => cwtInTitle(e.title))
+      .map(e => ({
+        id: e.id,
+        title: e.title,
+        user_id: e.user_id,
+        user_name: e.user_name
+      }));
+    console.info('newStreams', newStreams);
     if (newStreams.length === 0) return endWithCode(res, 200);
-
-    streams.push(...body.data.map(e => ({
-      id: e.id,
-      title: e.title,
-      user_id: e.user_id,
-      user_name: e.user_name
-    })))
-  } else { // stream's gone off
+    streams.push(...newStreams);
+  } else {
     const userId = userIdFromUrl(req.url);
+    console.info("stream's gone off for userId", userId);
     if (userId == null) return endWithCode(res, 404);
     let idxOfToBeRemovedStream = streams.findIndex(s => s.user_id === userId);
     while (idxOfToBeRemovedStream !== -1) {
