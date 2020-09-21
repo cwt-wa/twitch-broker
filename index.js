@@ -356,7 +356,7 @@ async function retrieveCurrentStreams(userIds) {
   let resolvePromise;
   const promise = new Promise(resolve => resolvePromise = resolve);
   const searchParams = new URLSearchParams(userIds.map(id => ['user_id', id]));
-  console.info(`Requesting initial streams ${searchParams}`);
+  console.info('Requesting initial streams', userIds);
   if (!searchParams.toString()) {
     return Promise.resolve([]);
   }
