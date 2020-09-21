@@ -56,6 +56,7 @@ eventEmitter.setMaxListeners(Infinity); // uh oh
 let accessToken;
 const leaseSeconds = 864000;
 const subscriptions = [];
+const allChannels = [];
 const streams = [];
 let shutdown;
 let server;
@@ -154,28 +155,28 @@ Payload: ${body && JSON.stringify(body)}`);
 
 (async () => {
   await retrieveAccessToken();
+  allChannels.push(...(await retrieveChannels()));
+  const userIds = await subscribeToAllChannels(allChannels.map(c => c.id));
+  console.info('userIds', userIds);
   createServer();
   if (currentTournamentCheck) {
     console.info("Checking if CWT is currently in group or playoff stage.");
     const currentTournament = await retrieveCurrentTournament();
     if (currentTournament && currentTournament.status
-      && ['GROUP', 'PLAYOFFS'].includes(currentTournament.status)) {
-      await subscribeToAllChannels();
-      streams.push(...await retrieveCurrentStreams(subscriptions));
+        && ['GROUP', 'PLAYOFFS'].includes(currentTournament.status)) {
+      streams.push(...await retrieveCurrentStreams(userIds));
     } else {
       console.info("There's currently no tournament so am not expecting any streams.");
     }
   } else {
     console.info("Skipping check if there's currently a CWT tournament ongoing.");
-    await subscribeToAllChannels();
-    streams.push(...await retrieveCurrentStreams(subscriptions));
+    streams.push(...await retrieveCurrentStreams(userIds));
   }
 })();
 
 async function subscribeToAllChannels(res) {
   const success = [];
   const failure = [];
-  const allChannels = await retrieveChannels();
   for (const c of allChannels) {
     try {
       await subUnsub(c.id, 'subscribe');
@@ -349,6 +350,9 @@ async function retrieveCurrentStreams(userIds) {
   const promise = new Promise(resolve => resolvePromise = resolve);
   const searchParams = new URLSearchParams(userIds.map(id => ['user_id', id]));
   console.info(`Requesting initial streams ${searchParams}`);
+  if (!searchParams.toString()) {
+    return Promise.resolve([]);
+  }
   https.request(
     `https://api.twitch.tv/helix/streams?${searchParams}`,
     {
