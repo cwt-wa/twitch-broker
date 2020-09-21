@@ -348,6 +348,8 @@ function validateSignature(req, res, raw) {
     endWithCode(res, 400);
     return false
   }
+  console.info('Signature valid.')
+  return true;
 }
 
 async function retrieveCurrentStreams(userIds) {
@@ -409,6 +411,7 @@ function retrieveCurrentTournament() {
 function validateContentLength(req, res, raw) {
   const contentLengthHeader = req.headers['content-length'];
   if (contentLengthHeader == null) {
+    console.warn('No Content-Length header.');
     endWithCode(res, 411);
     return false
   }
@@ -420,6 +423,7 @@ function validateContentLength(req, res, raw) {
     return false
   }
 
+  console.info('Content-Length is valid');
   return true
 }
 
