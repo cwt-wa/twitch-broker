@@ -232,8 +232,8 @@ function consume(req, res, body, raw) {
         user_name: e.user_name
       }));
     console.info('newStreams', newStreams);
-    if (newStreams.length === 0) return endWithCode(res, 200);
     streams.push(...newStreams);
+    if (newStreams.length === 0) return endWithCode(res, 200);
   } else {
     const userId = userIdFromUrl(req.url);
     console.info("stream's gone off for userId", userId);
