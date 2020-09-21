@@ -374,16 +374,15 @@ async function retrieveCurrentStreams(userIds) {
 }
 
 function retrieveChannels() {
-  let promiseResolver;
-  const promise = new Promise(resolve => promiseResolver = resolve);
-  https.get('https://cwtsite.com/api/channel',
-    (twitchRes) => {
-      bodify(twitchRes, body => {
-        console.info('Channels are', body.map(c => c.displayName));
-        promiseResolver(body);
+  return new Promise(resolve => {
+    https.get('https://cwtsite.com/api/channel',
+      (twitchRes) => {
+        bodify(twitchRes, body => {
+          console.info('Channels are', body.map(c => c.displayName));
+          resolve(body);
+        });
       });
-    });
-  return promise;
+  });
 }
 
 function retrieveCurrentTournament() {
