@@ -331,14 +331,13 @@ function current(req, res) {
   endWithCode(res, 200, JSON.stringify(streams))
 }
 
-// todo not really sure this actually works
 function validateSignature(req, res, raw) {
   if (!verifySignature) {
     console.log('Skipping signature verification');
     return true;
   }
 
-  const signature = req.headers['X-Hub-Signature'];
+  const signature = req.headers['x-hub-signature'];
   const expectedSignature = createHmac('sha256', process.env.TWITCH_CLIENT_SECRET)
     .update(raw)
     .digest('hex');
