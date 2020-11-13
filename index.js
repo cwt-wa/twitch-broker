@@ -246,7 +246,8 @@ function consume(req, res, body, raw) {
   }
 
   eventEmitter.emit('stream');
-  endWithCode(res, 200)
+  endWithCode(res, 200);
+  pingCwt(userId);
 }
 
 function produce(req, res) {
@@ -405,6 +406,31 @@ function retrieveCurrentTournament() {
       });
     });
   return promise;
+}
+
+function pingCwt(userId) {
+  const options = {
+    hostname: 'cwtsite.com',
+    port: 443,
+    path: '/api/channel/ping/' + userId,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': 0,
+    },
+  };
+  console.info('Pinging CWT with userId', userId);
+  return new Promise(resolve => {
+    const req = https.request(
+      options, (res) => {
+        bodify(res, body => {
+          console.info(res.statusCode, body);
+          resolve(body);
+        });
+      });
+    req.on('error', err => console.log('error on pinging CWT', err));
+    req.end();
+  });
 }
 
 function validateContentLength(req, res, raw) {
