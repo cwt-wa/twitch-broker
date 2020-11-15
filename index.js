@@ -243,11 +243,11 @@ function consume(req, res, body, raw) {
       streams.splice(idxOfToBeRemovedStream, 1);
       idxOfToBeRemovedStream = streams.findIndex(s => s.user_id === userId);
     }
+    pingCwt(userId);
   }
 
   eventEmitter.emit('stream');
   endWithCode(res, 200);
-  pingCwt(userId);
 }
 
 function produce(req, res) {
