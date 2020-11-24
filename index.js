@@ -50,6 +50,7 @@ if (!process.env.TWITCH_CLIENT_SECRET && verifySignature) {
   process.exit(1);
 }
 
+// TODO Send heartbeats.
 const eventEmitter = new EventEmitter();
 eventEmitter.setMaxListeners(Infinity); // uh oh
 
