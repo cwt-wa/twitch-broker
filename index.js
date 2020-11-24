@@ -428,22 +428,11 @@ function retrieveCurrentTournament() {
 }
 
 function pingCwt(userId) {
-  const url = new URL(cwtHost);
-  const options = {
-    hostname: url.hostname,
-    protocol: url.protocol,
-    port: parseInt(url.port) || undefined,
-    path: '/api/channel/ping/' + userId,
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': 0,
-    },
-  };
-  console.info('Pinging CWT with userId', userId);
+  const url = new URL(cwtHost + '/api/channel/ping/' + userId);
+  console.info('Pinging CWT with userId', url);
   return new Promise(resolve => {
     const req = cwtHostHttpModule.request(
-      options, (res) => {
+      toOptions(url), (res) => {
         bodify(res, body => {
           console.info(res.statusCode, body);
           resolve(body);
@@ -517,6 +506,26 @@ function cors(req, res) {
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS,POST,PUT");
   res.setHeader("Access-Control-Allow-Headers", "*")
+}
+
+function toOptions(url) {
+  var options = {
+    protocol: url.protocol,
+    hostname: typeof url.hostname === 'string' && url.hostname.startsWith('[') ?
+      url.hostname.slice(1, -1) :
+      url.hostname,
+    hash: url.hash,
+    search: url.search,
+    pathname: url.pathname,
+    path: `${url.pathname || ''}${url.search || ''}`,
+    href: url.href
+  };
+  if (url.port !== '') options.port = Number(url.port);
+  options.headers = {
+    'Content-Type': 'application/json',
+    'Content-Length': 0,
+  };
+  return options;
 }
 
 function endWithCode(res, code, payload) {
