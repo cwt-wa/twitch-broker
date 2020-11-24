@@ -1,3 +1,4 @@
+require('dotenv').config();
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
@@ -28,6 +29,7 @@ if (help) {
     ${bold('ENVIRONMENT')}
     ${bold('TWITCH_CLIENT_SECRET')}    Twitch API client secret
     ${bold('TWITCH_CLIENT_ID')}        Twitch API client ID
+    ${bold('TWITCH_CWT_HOST')}         Talking to CWT, (i.e. https://cwtsite.com)
     
     ${bold('OPTIONS')}
     ${bold('--no-signature')}          Skip signature check
@@ -49,6 +51,19 @@ if (!process.env.TWITCH_CLIENT_SECRET && verifySignature) {
   console.error('Please provide a secret via environment variable.');
   process.exit(1);
 }
+
+if (!process.env.TWITCH_CWT_HOST) {
+  console.error('You did not provide TWITCH_CWT_HOST environment variable.');
+  process.exit(1);
+}
+const cwtHost = (process.env.TWITCH_CWT_HOST.endsWith('/')
+    ? cwtHost.slice(0, -1) : process.env.TWITCH_CWT_HOST);
+const cwtHostHttpModule = cwtHost.startsWith('https') ? https : http;
+
+if (!process.env.TWITCH_BOT) {
+  console.warn("Twitch Bot not configured, won't auto join/part");
+}
+const twitchBotHost = process.env.TWITCH_BOT;
 
 // TODO Send heartbeats.
 const eventEmitter = new EventEmitter();
@@ -234,6 +249,11 @@ function consume(req, res, body, raw) {
       }));
     console.info('newStreams', newStreams);
     streams.push(...newStreams);
+    newStreams.forEach(s => {
+      pingBot(userId, 'join')
+        .then(res => console.info('join success', res))
+        .catch(err => console.error('join error', err));
+    });
     if (newStreams.length === 0) return endWithCode(res, 200);
   } else {
     const userId = userIdFromUrl(req.url);
@@ -245,6 +265,9 @@ function consume(req, res, body, raw) {
       idxOfToBeRemovedStream = streams.findIndex(s => s.user_id === userId);
     }
     pingCwt(userId);
+    pingBot(userId, 'part')
+      .then(res => console.info('part success', res))
+      .catch(err => console.error('part error', err));
   }
 
   eventEmitter.emit('stream');
@@ -387,7 +410,7 @@ async function retrieveCurrentStreams(userIds) {
 
 function retrieveChannels() {
   return new Promise(resolve => {
-    https.get('https://cwtsite.com/api/channel',
+    cwtHostHttpModule.get(cwtHost + '/api/channel',
       (twitchRes) => {
         bodify(twitchRes, body => {
           console.info('Channels are', body.map(c => `${c.id} ${c.displayName}`));
@@ -400,7 +423,7 @@ function retrieveChannels() {
 function retrieveCurrentTournament() {
   let resolvePromise;
   const promise = new Promise(resolve => resolvePromise = resolve);
-  https.get('https://cwtsite.com/api/tournament/current',
+  cwtHostHttpModule.get(cwtHost + '/api/tournament/current',
     (twitchRes) => {
       bodify(twitchRes, body => {
         resolvePromise(body);
@@ -410,26 +433,51 @@ function retrieveCurrentTournament() {
 }
 
 function pingCwt(userId) {
-  const options = {
-    hostname: 'cwtsite.com',
-    port: 443,
-    path: '/api/channel/ping/' + userId,
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': 0,
-    },
-  };
-  console.info('Pinging CWT with userId', userId);
+  const url = new URL(cwtHost + '/api/channel/ping/' + userId);
+  console.info('Pinging CWT with userId', url);
   return new Promise(resolve => {
-    const req = https.request(
-      options, (res) => {
+    const req = cwtHostHttpModule.request(
+      toOptions(url, 'POST'), (res) => {
         bodify(res, body => {
           console.info(res.statusCode, body);
           resolve(body);
         });
       });
     req.on('error', err => console.log('error on pinging CWT', err));
+    req.end();
+  });
+}
+
+/**
+ * user_login corresponds to the channel to join to
+ *  and it's therefore what twitch-bot works with.
+ * Unfortunately this information isn't available here.
+ * I learnt, though, the user_login is the display_name in all lower case
+ *  Therefore that information is in fact available.
+ */
+function pingBot(userId, action) {
+  if (twitchBotHost == null) {
+    console.info('No auto join/part as Twitch Bot is not configures');
+    return Promise.resolve();
+  }
+  const channel = allChannels.find(c => c.id === userId);
+  if (channel == null) {
+    return Promise.reject(`${userId} cannot be found in channels ${allChannels}.`);
+  }
+  const url = new URL(twitchBotHost, `/api/${channel}/auto-${action}`);
+  console.info('Pinging Bot', url);
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      toOptions(url), (res) => {
+        bodify(res, body => {
+          console.info(res.statusCode, body);
+          resolve(body);
+        });
+      });
+    req.on('error', err => {
+        console.log(`error on auto-${action}ing bot`, err)
+        reject(err);
+      });
     req.end();
   });
 }
@@ -458,6 +506,27 @@ function cors(req, res) {
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS,POST,PUT");
   res.setHeader("Access-Control-Allow-Headers", "*")
+}
+
+function toOptions(url, method = 'GET') {
+  var options = {
+    protocol: url.protocol,
+    hostname: typeof url.hostname === 'string' && url.hostname.startsWith('[') ?
+      url.hostname.slice(1, -1) :
+      url.hostname,
+    hash: url.hash,
+    search: url.search,
+    pathname: url.pathname,
+    path: `${url.pathname || ''}${url.search || ''}`,
+    href: url.href
+  };
+  if (url.port !== '') options.port = Number(url.port);
+  options.headers = {
+    'Content-Type': 'application/json',
+    'Content-Length': 0,
+  };
+  options.method = method;
+  return options;
 }
 
 function endWithCode(res, code, payload) {
