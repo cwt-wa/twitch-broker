@@ -1,3 +1,4 @@
+require('dotenv').config();
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
@@ -28,6 +29,7 @@ if (help) {
     ${bold('ENVIRONMENT')}
     ${bold('TWITCH_CLIENT_SECRET')}    Twitch API client secret
     ${bold('TWITCH_CLIENT_ID')}        Twitch API client ID
+    ${bold('TWITCH_CWT_HOST')}         Talking to CWT, (i.e. https://cwtsite.com)
     
     ${bold('OPTIONS')}
     ${bold('--no-signature')}          Skip signature check
@@ -49,6 +51,14 @@ if (!process.env.TWITCH_CLIENT_SECRET && verifySignature) {
   console.error('Please provide a secret via environment variable.');
   process.exit(1);
 }
+
+if (!process.env.TWITCH_CWT_HOST) {
+  console.error('You did not provide TWITCH_CWT_HOST environment variable.');
+  process.exit(1);
+}
+const cwtHost = (process.env.TWITCH_CWT_HOST.endsWith('/')
+    ? cwtHost.slice(0, -1) : process.env.TWITCH_CWT_HOST);
+const cwtHostHttpModule = cwtHost.startsWith('https') ? https : http;
 
 // TODO Send heartbeats.
 const eventEmitter = new EventEmitter();
@@ -395,7 +405,7 @@ async function retrieveCurrentStreams(userIds) {
 
 function retrieveChannels() {
   return new Promise(resolve => {
-    https.get('https://cwtsite.com/api/channel',
+    cwtHostHttpModule.get(cwtHost + '/api/channel',
       (twitchRes) => {
         bodify(twitchRes, body => {
           console.info('Channels are', body.map(c => `${c.id} ${c.displayName}`));
@@ -408,7 +418,7 @@ function retrieveChannels() {
 function retrieveCurrentTournament() {
   let resolvePromise;
   const promise = new Promise(resolve => resolvePromise = resolve);
-  https.get('https://cwtsite.com/api/tournament/current',
+  cwtHostHttpModule.get(cwtHost + '/api/tournament/current',
     (twitchRes) => {
       bodify(twitchRes, body => {
         resolvePromise(body);
@@ -418,9 +428,11 @@ function retrieveCurrentTournament() {
 }
 
 function pingCwt(userId) {
+  const url = new URL(cwtHost);
   const options = {
-    hostname: 'cwtsite.com',
-    port: 443,
+    hostname: url.hostname,
+    protocol: url.protocol,
+    port: parseInt(url.port) || undefined,
     path: '/api/channel/ping/' + userId,
     method: 'POST',
     headers: {
@@ -430,7 +442,7 @@ function pingCwt(userId) {
   };
   console.info('Pinging CWT with userId', userId);
   return new Promise(resolve => {
-    const req = https.request(
+    const req = cwtHostHttpModule.request(
       options, (res) => {
         bodify(res, body => {
           console.info(res.statusCode, body);
