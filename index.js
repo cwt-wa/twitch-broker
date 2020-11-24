@@ -60,6 +60,11 @@ const cwtHost = (process.env.TWITCH_CWT_HOST.endsWith('/')
     ? cwtHost.slice(0, -1) : process.env.TWITCH_CWT_HOST);
 const cwtHostHttpModule = cwtHost.startsWith('https') ? https : http;
 
+if (!process.env.TWITCH_BOT) {
+  console.warn("Twitch Bot not configured, won't auto join/part");
+}
+const twitchBotHost = process.env.TWITCH_BOT;
+
 // TODO Send heartbeats.
 const eventEmitter = new EventEmitter();
 eventEmitter.setMaxListeners(Infinity); // uh oh
@@ -451,24 +456,19 @@ function pingCwt(userId) {
  *  Therefore that information is in fact available.
  */
 function pingBot(userId, action) {
+  if (twitchBotHost == null) {
+    console.info('No auto join/part as Twitch Bot is not configures');
+    return Promise.resolve();
+  }
   const channel = allChannels.find(c => c.id === userId);
   if (channel == null) {
     return Promise.reject(`${userId} cannot be found in channels ${allChannels}.`);
   }
-  const options = {
-    hostname: 'twitch-bot.zemke.io',
-    port: 443,
-    path: `/api/${channel}/auto-${action}`,
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': 0,
-    },
-  };
-  console.info('POST', options.path);
+  const url = new URL(twitchBotHost, `/api/${channel}/auto-${action}`);
+  console.info('Pinging Bot', url);
   return new Promise((resolve, reject) => {
     const req = https.request(
-      options, (res) => {
+      toOptions(url), (res) => {
         bodify(res, body => {
           console.info(res.statusCode, body);
           resolve(body);
