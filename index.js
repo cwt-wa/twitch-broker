@@ -437,7 +437,7 @@ function pingCwt(userId) {
   console.info('Pinging CWT with userId', url);
   return new Promise(resolve => {
     const req = cwtHostHttpModule.request(
-      toOptions(url), (res) => {
+      toOptions(url, 'POST'), (res) => {
         bodify(res, body => {
           console.info(res.statusCode, body);
           resolve(body);
@@ -508,7 +508,7 @@ function cors(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "*")
 }
 
-function toOptions(url) {
+function toOptions(url, method = 'GET') {
   var options = {
     protocol: url.protocol,
     hostname: typeof url.hostname === 'string' && url.hostname.startsWith('[') ?
@@ -525,6 +525,7 @@ function toOptions(url) {
     'Content-Type': 'application/json',
     'Content-Length': 0,
   };
+  options.method = method;
   return options;
 }
 
