@@ -234,6 +234,11 @@ function consume(req, res, body, raw) {
       }));
     console.info('newStreams', newStreams);
     streams.push(...newStreams);
+    newStreams.forEach(s => {
+      pingBot(userId, 'join')
+        .then(res => console.info('join success', res))
+        .catch(err => console.error('join error', err));
+    });
     if (newStreams.length === 0) return endWithCode(res, 200);
   } else {
     const userId = userIdFromUrl(req.url);
@@ -245,6 +250,9 @@ function consume(req, res, body, raw) {
       idxOfToBeRemovedStream = streams.findIndex(s => s.user_id === userId);
     }
     pingCwt(userId);
+    pingBot(userId, 'part')
+      .then(res => console.info('part success', res))
+      .catch(err => console.error('part error', err));
   }
 
   eventEmitter.emit('stream');
@@ -430,6 +438,45 @@ function pingCwt(userId) {
         });
       });
     req.on('error', err => console.log('error on pinging CWT', err));
+    req.end();
+  });
+}
+
+/**
+ * user_login corresponds to the channel to join to
+ *  and it's therefore what twitch-bot works with.
+ * Unfortunately this information isn't available here.
+ * I learnt, though, the user_login is the display_name in all lower case
+ *  Therefore that information is in fact available.
+ */
+function pingBot(userId, action) {
+  const channel = allChannels.find(c => c.id === userId);
+  if (channel == null) {
+    return Promise.reject(`${userId} cannot be found in channels ${allChannels}.`);
+  }
+  const options = {
+    hostname: 'twitch-bot.zemke.io',
+    port: 443,
+    path: `/api/${channel}/auto-${action}`,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': 0,
+    },
+  };
+  console.info('POST', options.path);
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      options, (res) => {
+        bodify(res, body => {
+          console.info(res.statusCode, body);
+          resolve(body);
+        });
+      });
+    req.on('error', err => {
+        console.log(`error on auto-${action}ing bot`, err)
+        reject(err);
+      });
     req.end();
   });
 }
