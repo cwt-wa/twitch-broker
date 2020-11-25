@@ -139,6 +139,7 @@ async function validateAccessToken() {
 function createServer() {
   server = http.createServer(async (req, res) => {
     if (req.url === '/favicon.ico') return endWithCode(res, 404);
+    if (req.method === 'OPTIONS') return endWithCode(res, 200);
 
     const validateRes = await validateAccessToken();
     if (!validateRes.res.statusCode.toString().startsWith('2')) {
