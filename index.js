@@ -65,7 +65,6 @@ if (!process.env.TWITCH_BOT) {
 }
 const twitchBotHost = process.env.TWITCH_BOT;
 
-// TODO Send heartbeats.
 const eventEmitter = new EventEmitter();
 eventEmitter.setMaxListeners(Infinity); // uh oh
 
@@ -287,6 +286,8 @@ function produce(req, res) {
   });
   res.write('\n');
   res.write(asEvent(streams));
+  res.write(asEvent([]))
+  setInterval(() => res.write(asEvent([])), 15000);
   const eventListener = () => res.write(asEvent(streams));
   eventEmitter.addListener('stream', eventListener);
   res.on('close', () => eventEmitter.removeListener('stream', eventListener))
