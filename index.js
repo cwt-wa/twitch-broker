@@ -188,6 +188,7 @@ Payload: ${body && JSON.stringify(body)}`);
     console.info("Skipping check if there's currently a CWT tournament ongoing.");
     streams.push(...await retrieveCurrentStreams(userIds));
   }
+  streams.forEach(s => pingBot(s.user_name, 'join'));
 })();
 
 async function subscribeToAllChannels(res) {
@@ -464,7 +465,7 @@ function pingBot(userId, action) {
   if (channel == null) {
     return Promise.reject(`${userId} cannot be found in channels ${allChannels}.`);
   }
-  const url = new URL(twitchBotHost, `/api/${channel}/auto-${action}`);
+  const url = new URL(twitchBotHost, `/api/${channel.login}/auto-${action}`);
   console.info('Pinging Bot', url);
   return new Promise((resolve, reject) => {
     const req = https.request(
