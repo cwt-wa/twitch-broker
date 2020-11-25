@@ -188,7 +188,11 @@ Payload: ${body && JSON.stringify(body)}`);
     console.info("Skipping check if there's currently a CWT tournament ongoing.");
     streams.push(...await retrieveCurrentStreams(userIds));
   }
-  streams.forEach(s => pingBot(s.user_name, 'join'));
+  streams.forEach(s => {
+    pingBot(s.user_name, 'join')
+      .then(res => console.info("successful join", res))
+      .catch(err => consol.error('error joining', err));
+  });
 })();
 
 async function subscribeToAllChannels(res) {
