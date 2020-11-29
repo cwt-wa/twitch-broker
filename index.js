@@ -255,7 +255,7 @@ function consume(req, res, body, raw) {
     console.info('newStreams', newStreams);
     streams.push(...newStreams);
     newStreams.forEach(s => {
-      pingBot(userId, 'join')
+      pingBot(s.user_name, 'join')
         .then(res => console.info('join success', res))
         .catch(err => console.error('join error', err));
     });
@@ -265,12 +265,13 @@ function consume(req, res, body, raw) {
     console.info("stream's gone off for userId", userId);
     if (userId == null) return endWithCode(res, 404);
     let idxOfToBeRemovedStream = streams.findIndex(s => s.user_id === userId);
+    const user_name = streams[idxOfToBeRemovedStream].user_name;
     while (idxOfToBeRemovedStream !== -1) {
       streams.splice(idxOfToBeRemovedStream, 1);
       idxOfToBeRemovedStream = streams.findIndex(s => s.user_id === userId);
     }
     pingCwt(userId);
-    pingBot(userId, 'part')
+    pingBot(user_name, 'part')
       .then(res => console.info('part success', res))
       .catch(err => console.error('part error', err));
   }
@@ -466,11 +467,7 @@ function pingBot(userId, action) {
     console.info('No auto join/part as Twitch Bot is not configures');
     return Promise.resolve();
   }
-  const channel = allChannels.find(c => c.id === userId);
-  if (channel == null) {
-    return Promise.reject(`${userId} cannot be found in channels ${allChannels}.`);
-  }
-  const url = new URL(twitchBotHost, `/api/${channel.login}/auto-${action}`);
+  const url = new URL(`${twitchBotHost}/api/${user_name.toLowerCase()}/auto-${action}`);
   console.info('Pinging Bot', url);
   return new Promise((resolve, reject) => {
     const req = https.request(
