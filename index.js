@@ -7,7 +7,7 @@ const {createHmac} = require('crypto');
 
 const cwtInTitle = title => title.match(/\bcwt\b/i) !== null;
 const userIdFromUrl = url => url.split('/')[2];
-const asEvent = payload => 'data: ' + JSON.stringify(payload) + '\n\n';
+const asEvent = (event, payload) => `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;
 const bold = txt => '\033[1m' + txt + '\033[0m';
 const assert = (expression, fallback) => {
   try { return expression(); }
@@ -286,10 +286,9 @@ function produce(req, res) {
     'Connection': 'keep-alive',
   });
   res.write('\n');
-  res.write(asEvent(streams));
-  res.write(asEvent([]))
-  setInterval(() => res.write(asEvent([])), 15000);
-  const eventListener = () => res.write(asEvent(streams));
+  res.write(asEvent('STREAMS', streams));
+  setInterval(() => res.write(asEvent('HEARTBEAT', 'HEARTBEAT')), 15000);
+  const eventListener = () => res.write(asEvent('STREAMS', streams));
   eventEmitter.addListener('stream', eventListener);
   res.on('close', () => eventEmitter.removeListener('stream', eventListener))
 }
