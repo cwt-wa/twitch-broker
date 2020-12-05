@@ -462,7 +462,7 @@ function pingCwt(userId) {
  * I learnt, though, the user_login is the display_name in all lower case
  *  Therefore that information is in fact available.
  */
-function pingBot(userId, action) {
+function pingBot(user_name, action) {
   if (twitchBotHost == null) {
     console.info('No auto join/part as Twitch Bot is not configures');
     return Promise.resolve();
