@@ -153,11 +153,11 @@ Headers: ${JSON.stringify(req.headers)}
 Payload: ${body && JSON.stringify(body)}`);
         req.on('error', console.error);
         cors(req, res);
-        if (req.url.startsWith('/consume')) consume2(req, res, body, raw);
+        if (req.url.startsWith('/consume')) consume(req, res, body, raw);
         else if (req.url === '/produce') produce(req, res);
         else if (req.url === '/current') current(req, res);
         else if (req.url === '/subscribe-all') subscribeToAllChannels(res);
-        else if (req.url.startsWith('/subscribe')) subUnsub2(userIdFromUrl(req.url), 'subscribe', res);
+        else if (req.url.startsWith('/subscribe')) subUnsub(userIdFromUrl(req.url), 'subscribe', res);
         else if (req.url.startsWith('/unsubscribe')) subUnsub(userIdFromUrl(req.url), 'unsubscribe', res);
         else endWithCode(res, 404)
       } catch (e) {
@@ -211,7 +211,7 @@ async function subscribeToAllChannels(res) {
   res && endWithCode(res, 200, {success, failure});
 }
 
-async function consume2(req, res, body, raw) {
+async function consume(req, res, body, raw) {
   // TODO https://dev.twitch.tv/docs/eventsub/handling-webhook-events#verifying-the-event-message
   console.log(req.headers);
   const type = req.headers['twitch-eventsub-message-type'];
@@ -272,74 +272,6 @@ async function getChannelInformation(userId) {
   });
 }
 
-function consume(req, res, body, raw) {
-  const url = new URL(req.url, hostname);
-  const hubCallback = url.searchParams.get('hub.challenge');
-  if (hubCallback != null) {
-    console.info('Verifying callback.', hubCallback);
-    const hubMode = url.searchParams.get('hub.mode');
-    const hubUserId = new URL(decodeURIComponent(
-      url.searchParams.get('hub.topic'))).searchParams.get('user_id');
-    if (hubMode === 'unsubscribe') {
-      subscriptions.splice(
-        subscriptions.indexOf(
-          hubUserId),
-        1);
-      if (subscriptions.length === 0 && shutdown != null) {
-        shutdown();
-      }
-    } else if (hubMode === 'subscribe') {
-      subscriptions.push(hubUserId);
-    }
-    return endWithCode(res, 202, hubCallback);
-  }
-
-  console.log("There's a consumption", body);
-
-  if (!validateContentLength(req, res, raw)) return;
-  if (!validateSignature(req, res, raw)) return;
-
-  console.info('All validation passed.');
-
-  if (body.data.length !== 0) {
-    console.info("stream's gone online or maybe changed.");
-    const newStreams = body.data
-      .filter(e => !streams.map(s => s.id).includes(e.id))
-      .filter(e => cwtInTitle(e.title))
-      .map(e => ({
-        id: e.id,
-        title: e.title,
-        user_id: e.user_id,
-        user_name: e.user_name
-      }));
-    console.info('newStreams', newStreams);
-    streams.push(...newStreams);
-    newStreams.forEach(s => {
-      pingBot(s.user_name, 'join')
-        .then(res => console.info('join success', res))
-        .catch(err => console.error('join error', err));
-    });
-    if (newStreams.length === 0) return endWithCode(res, 200);
-  } else {
-    const userId = userIdFromUrl(req.url);
-    console.info("stream's gone off for userId", userId);
-    if (userId == null) return endWithCode(res, 404);
-    let idxOfToBeRemovedStream = streams.findIndex(s => s.user_id === userId);
-    const user_name = streams[idxOfToBeRemovedStream].user_name;
-    while (idxOfToBeRemovedStream !== -1) {
-      streams.splice(idxOfToBeRemovedStream, 1);
-      idxOfToBeRemovedStream = streams.findIndex(s => s.user_id === userId);
-    }
-    pingCwt(userId);
-    pingBot(user_name, 'part')
-      .then(res => console.info('part success', res))
-      .catch(err => console.error('part error', err));
-  }
-
-  eventEmitter.emit('stream');
-  endWithCode(res, 200);
-}
-
 function produce(req, res) {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -354,9 +286,7 @@ function produce(req, res) {
   res.on('close', () => eventEmitter.removeListener('stream', eventListener))
 }
 
-function subUnsub2(userId, subUnsubAction, res) {
-  // TODO Channel must've given permission to this app.
-
+function subUnsub(userId, subUnsubAction, res) {
   if (userId == null) {
     console.warn("No channel to subscribe to.");
     res && endWithCode(res, 404);
@@ -412,55 +342,6 @@ function subUnsub2(userId, subUnsubAction, res) {
   } else {
     throw Error(`no handler for ${subUnsubAction}`);
   }
-}
-
-function subUnsub(userId, subUnsubAction, res) {
-  let resolvePromise;
-  let rejectPromise;
-  const promise = new Promise((resolve, reject) => {
-    resolvePromise = resolve;
-    rejectPromise = reject;
-  });
-  if (!userId) {
-    console.warn("No channel to subscribe to.");
-    res && endWithCode(res, 404);
-    return Promise.reject("No channel to subscribe to.");
-  }
-  const options = {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'client-id': process.env.TWITCH_CLIENT_ID,
-      'Authorization': `Bearer ${accessToken}`
-    }
-  };
-  const twitchReq = https.request(
-    'https://api.twitch.tv/helix/webhooks/hub', // decomissioned
-    options, (twitchRes) => {
-      bodify(twitchRes, body => {
-        console.info(`${subUnsubAction}d to ${userId} with HTTP status ${twitchRes.statusCode}`);
-        if (twitchRes.statusCode.toString().startsWith('2')) {
-          resolvePromise();
-        } else {
-          rejectPromise();
-        }
-        res && endWithCode(res, 200);
-      });
-    });
-  twitchReq.on('error', console.error);
-  const callbackUrl = `${hostname}/consume/${userId}`;
-  console.log('callbackUrl', callbackUrl);
-  const topic = `https://api.twitch.tv/helix/streams?user_id=${userId}`;
-  console.info(`${subUnsubAction} `, topic);
-  twitchReq.write(JSON.stringify({
-    "hub.callback": callbackUrl,
-    "hub.mode": subUnsubAction,
-    "hub.topic": topic,
-    "hub.secret": process.env.TWITCH_CLIENT_SECRET,
-    "hub.lease_seconds": leaseSeconds,
-  }));
-  twitchReq.end();
-  return promise;
 }
 
 function bodify(req, cb) {
