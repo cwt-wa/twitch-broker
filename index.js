@@ -226,15 +226,15 @@ async function consume2(req, res, body, raw) {
     (idx => streams.splice(idx, 1))
       (streams.findIndex(s => s.user_id === event.broadcaster_user_id));
     let bot;
-    if (body.subscription.type === "channel.online") {
-      stream.push({
+    if (body.subscription.type === "stream.online") {
+      streams.push({
         id: body.id,
         title: (await getStream()).title, // TODO not part of the response
         user_id: event.broadcaster_user_id,
         user_name: event.broadcaster_user_name,
       });
       bot = 'join';
-    } else if (body.subscription.type === "channel.offline") {
+    } else if (body.subscription.type === "stream.offline") {
       bot = 'part';
     }
     pingBot(event.broadcaster_user_name, bot)
