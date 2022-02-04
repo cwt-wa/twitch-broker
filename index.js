@@ -229,7 +229,7 @@ async function consume2(req, res, body, raw) {
     if (body.subscription.type === "stream.online") {
       streams.push({
         id: body.id,
-        title: (await getStream()).title, // TODO not part of the response
+        title: (await getChannelInformation(event.broadcaster_user_id)).title,
         user_id: event.broadcaster_user_id,
         user_name: event.broadcaster_user_name,
       });
@@ -247,9 +247,29 @@ async function consume2(req, res, body, raw) {
   endWithCode(res, 400);
 }
 
-async function getStream(streamId) {
-  //const topic = `https://api.twitch.tv/helix/streams?user_id=${userId}`;
-  return {title: "testtitle"};
+async function getChannelInformation(userId) {
+  if (userId == null) throw Error("no user id provided");
+  const searchParams = new URLSearchParams({broadcaster_id: userId});
+  console.info('Requesting channel information', userId);
+  return new Promise((resolve, reject) => {
+    https.request(
+      `https://api.twitch.tv/helix/channels?${searchParams}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'client-id': process.env.TWITCH_CLIENT_ID,
+          'Authorization': `Bearer ${accessToken}`
+        }
+      },
+      twitchRes => {
+        bodify(twitchRes, body => {
+          console.info("Response for channel information", body);
+          if (!body.data?.length) resolve({});
+          else resolve(body.data[0]);
+        })
+      }).end();
+  });
 }
 
 function consume(req, res, body, raw) {
