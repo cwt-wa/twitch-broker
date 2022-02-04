@@ -4,7 +4,6 @@ const https = require('https');
 const fs = require('fs');
 const {EventEmitter} = require('events');
 const {createHmac} = require('crypto');
-
 const cwtInTitle = title => title.match(/\bcwt\b/i) !== null;
 const userIdFromUrl = url => url.split('/')[2];
 const asEvent = (event, payload) => `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;
@@ -154,11 +153,11 @@ Headers: ${JSON.stringify(req.headers)}
 Payload: ${body && JSON.stringify(body)}`);
         req.on('error', console.error);
         cors(req, res);
-        if (req.url.startsWith('/consume')) consume(req, res, body, raw);
+        if (req.url.startsWith('/consume')) consume2(req, res, body, raw);
         else if (req.url === '/produce') produce(req, res);
         else if (req.url === '/current') current(req, res);
         else if (req.url === '/subscribe-all') subscribeToAllChannels(res);
-        else if (req.url.startsWith('/subscribe')) subUnsub(userIdFromUrl(req.url), 'subscribe', res);
+        else if (req.url.startsWith('/subscribe')) subUnsub2(userIdFromUrl(req.url), 'subscribe', res);
         else if (req.url.startsWith('/unsubscribe')) subUnsub(userIdFromUrl(req.url), 'unsubscribe', res);
         else endWithCode(res, 404)
       } catch (e) {
@@ -210,6 +209,47 @@ async function subscribeToAllChannels(res) {
   }
   setTimeout(() => subscribeToAllChannels(), leaseSeconds * 1000);
   res && endWithCode(res, 200, {success, failure});
+}
+
+async function consume2(req, res, body, raw) {
+  // TODO https://dev.twitch.tv/docs/eventsub/handling-webhook-events#verifying-the-event-message
+  console.log(req.headers);
+  const type = req.headers['twitch-eventsub-message-type'];
+  console.log('consuming type', type, raw);
+  if (type === 'webhook_callback_verification') {
+    console.log('accepting challenge', body.challenge);
+    res.setHeader('Content-Type', 'text/plain');
+    return endWithCode(res, 202, body.challenge);
+  } else if (type === 'notification') {
+    const {event} = body;
+    // user_id should be unique in streams
+    (idx => streams.splice(idx, 1))
+      (streams.findIndex(s => s.user_id === event.broadcaster_user_id));
+    let bot;
+    if (body.subscription.type === "channel.online") {
+      stream.push({
+        id: body.id,
+        title: (await getStream()).title, // TODO not part of the response
+        user_id: event.broadcaster_user_id,
+        user_name: event.broadcaster_user_name,
+      });
+      bot = 'join';
+    } else if (body.subscription.type === "channel.offline") {
+      bot = 'part';
+    }
+    pingBot(event.broadcaster_user_name, bot)
+      .then(res => console.info(bot, 'success', res))
+      .catch(err => console.error(bot, 'error', err));
+    eventEmitter.emit('stream');
+    res.setHeader('Content-Type', 'application/json');
+    endWithCode(res, 200);
+  }
+  endWithCode(res, 400);
+}
+
+async function getStream(streamId) {
+  //const topic = `https://api.twitch.tv/helix/streams?user_id=${userId}`;
+  return {title: "testtitle"};
 }
 
 function consume(req, res, body, raw) {
@@ -294,6 +334,66 @@ function produce(req, res) {
   res.on('close', () => eventEmitter.removeListener('stream', eventListener))
 }
 
+function subUnsub2(userId, subUnsubAction, res) {
+  // TODO Channel must've given permission to this app.
+
+  if (userId == null) {
+    console.warn("No channel to subscribe to.");
+    res && endWithCode(res, 404);
+    return Promise.reject("No channel to subscribe to.");
+  }
+  const callbackUrl = `${hostname}/consume/${userId}`;
+  const options = {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'client-id': process.env.TWITCH_CLIENT_ID,
+      'Authorization': `Bearer ${accessToken}`
+    }
+  };
+
+  if (subUnsubAction === 'subscribe') {
+    return Promise.all(
+      ["stream.online", "stream.offline"].map(type => {
+        return new Promise((resolve, reject) => {
+          const twitchReq = https.request(
+            "https://api.twitch.tv/helix/eventsub/subscriptions",
+            options, twitchRes => {
+              bodify(twitchRes, body => {
+                console.info(`${subUnsubAction}d to ${userId} with HTTP status ${twitchRes.statusCode}`);
+                if (twitchRes.statusCode.toString().startsWith('2')) {
+                  resolve();
+                } else {
+                  reject();
+                }
+                res && endWithCode(res, 200);
+              });
+            }
+          );
+          twitchReq.write(JSON.stringify({
+            "type": type,
+            "version": "1",
+            "condition": {
+              "broadcaster_user_id": userId,
+            },
+            "transport": {
+              "method": "webhook",
+              "callback": callbackUrl,
+              "secret": process.env.TWITCH_CLIENT_SECRET,
+            },
+          }));
+          twitchReq.end();
+        });
+      })
+    );
+  } else if (subUnsubAction === 'unsubscribe')  {
+    // TODO read subUnsubAction for unsubscribe
+    throw Error('TODO');
+  } else {
+    throw Error(`no handler for ${subUnsubAction}`);
+  }
+}
+
 function subUnsub(userId, subUnsubAction, res) {
   let resolvePromise;
   let rejectPromise;
@@ -315,7 +415,7 @@ function subUnsub(userId, subUnsubAction, res) {
     }
   };
   const twitchReq = https.request(
-    'https://api.twitch.tv/helix/webhooks/hub',
+    'https://api.twitch.tv/helix/webhooks/hub', // decomissioned
     options, (twitchRes) => {
       bodify(twitchRes, body => {
         console.info(`${subUnsubAction}d to ${userId} with HTTP status ${twitchRes.statusCode}`);
