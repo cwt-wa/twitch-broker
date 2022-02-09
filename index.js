@@ -3,7 +3,7 @@ const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const {EventEmitter} = require('events');
-const {createHmac} = require('crypto');
+const {createHmac, timingSafeEqual} = require('crypto');
 const cwtInTitle = title => title.match(/\bcwt\b/i) !== null;
 const userIdFromUrl = url => url.split('/')[2];
 const asEvent = (event, payload) => `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;
@@ -212,8 +212,7 @@ async function subscribeToAllChannels(res) {
 }
 
 async function consume(req, res, body, raw) {
-  // TODO https://dev.twitch.tv/docs/eventsub/handling-webhook-events#verifying-the-event-message
-  console.log(req.headers);
+  if (!validateSignature(req, res, raw)) return endWithCode(res, 400);
   const type = req.headers['twitch-eventsub-message-type'];
   console.log('consuming type', type, raw);
   if (type === 'webhook_callback_verification') {
@@ -369,16 +368,18 @@ function validateSignature(req, res, raw) {
     console.log('Skipping signature verification');
     return true;
   }
-
-  const signature = req.headers['x-hub-signature'];
+  const msg = req.headers['twitch-eventsub-message-id']
+        + req.headers['twitch-eventsub-message-timestamp']
+        + raw;
   const expectedSignature = createHmac('sha256', process.env.TWITCH_CLIENT_SECRET)
-    .update(raw)
+    .update(msg)
     .digest('hex');
-
-  if (signature !== `sha256=${expectedSignature}`) {
+  if (!timingSafeEqual(
+      Buffer.from('sha256=' + expectedSignature),
+      Buffer.from(req.headers['twitch-eventsub-message-signature']))) {
     console.error('Invalid signature.');
     endWithCode(res, 400);
-    return false
+    return false;
   }
   console.info('Signature valid.')
   return true;
