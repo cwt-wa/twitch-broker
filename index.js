@@ -226,20 +226,28 @@ async function consume(req, res, body, raw) {
       (streams.findIndex(s => s.user_id === event.broadcaster_user_id));
     let bot;
     if (body.subscription.type === "stream.online") {
-      streams.push({
-        id: body.id,
-        title: (await getChannelInformation(event.broadcaster_user_id)).title,
-        user_id: event.broadcaster_user_id,
-        user_name: event.broadcaster_user_name,
-      });
-      bot = 'join';
+      const title = (await getChannelInformation(event.broadcaster_user_id)).title;
+      const isCwt = cwtInTitle(title);
+      if (isCwt) {
+        streams.push({
+          id: body.id,
+          title,
+          user_id: event.broadcaster_user_id,
+          user_name: event.broadcaster_user_name,
+        });
+        bot = 'join';
+      }
     } else if (body.subscription.type === "stream.offline") {
       bot = 'part';
     }
-    pingBot(event.broadcaster_user_name, bot)
-      .then(res => console.info(bot, 'success', res))
-      .catch(err => console.error(bot, 'error', err));
-    eventEmitter.emit('stream');
+    if (bot != null) {
+      pingBot(event.broadcaster_user_name, bot)
+        .then(res => console.info(bot, 'success', res))
+        .catch(err => console.error(bot, 'error', err));
+    }
+    if (isCwt) {
+      eventEmitter.emit('stream');
+    }
     res.setHeader('Content-Type', 'application/json');
     endWithCode(res, 200);
   }
