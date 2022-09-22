@@ -225,9 +225,9 @@ async function consume(req, res, body, raw) {
     (idx => streams.splice(idx, 1))
       (streams.findIndex(s => s.user_id === event.broadcaster_user_id));
     let bot;
+    const title = (await getChannelInformation(event.broadcaster_user_id)).title;
+    const isCwt = cwtInTitle(title);
     if (body.subscription.type === "stream.online") {
-      const title = (await getChannelInformation(event.broadcaster_user_id)).title;
-      const isCwt = cwtInTitle(title);
       if (isCwt) {
         streams.push({
           id: body.id,
