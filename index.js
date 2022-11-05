@@ -414,13 +414,16 @@ async function retrieveCurrentStreams(userIds) {
     twitchRes => {
       bodify(twitchRes, body => {
         console.info("Response for initial streams", body);
-        resolvePromise(body.data.map(e => ({
-          id: e.id,
-          title: e.title,
-          user_id: e.user_id,
-          user_name: e.user_name
-        })));
-      })
+        resolvePromise(body.data
+          .filter(({title}) => cwtInTitle(title))
+          .map(e => ({
+            id: e.id,
+            title: e.title,
+            user_id: e.user_id,
+            user_name: e.user_name
+          }))
+        );
+      });
     }).end();
   return promise;
 }
