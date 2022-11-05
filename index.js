@@ -360,7 +360,7 @@ function bodify(req, cb) {
       try {
         cb(JSON.parse(body), body)
       } catch (e) {
-        console.warn('body could not be parsed', e);
+        console.warn('body could not be parsed', e, body);
         cb(null);
       }
     });
