@@ -224,11 +224,10 @@ async function consume(req, res, body, raw) {
     // user_id should be unique in streams
     (idx => streams.splice(idx, 1))
       (streams.findIndex(s => s.user_id === event.broadcaster_user_id));
-    let bot;
     const title = (await getChannelInformation(event.broadcaster_user_id)).title;
-    const isCwt = cwtInTitle(title);
-    if (body.subscription.type === "stream.online") {
-      if (isCwt) {
+    let bot;
+    if (cwtInTitle(title)) {
+      if (body.subscription.type === "stream.online") {
         streams.push({
           id: body.id,
           title,
@@ -236,16 +235,17 @@ async function consume(req, res, body, raw) {
           user_name: event.broadcaster_user_name,
         });
         bot = 'join';
+      } else if (body.subscription.type === "stream.offline") {
+        bot = 'part';
+        pingCwt(event.broadcaster_user_id)
+          .then(res => console.info('pingCwt success', res))
+          .catch(err => console.error('pingCwt error', err));
       }
-    } else if (body.subscription.type === "stream.offline") {
-      bot = 'part';
-    }
-    if (bot != null) {
-      pingBot(event.broadcaster_user_name, bot)
-        .then(res => console.info(bot, 'success', res))
-        .catch(err => console.error(bot, 'error', err));
-    }
-    if (isCwt) {
+      if (bot != null) {
+        pingBot(event.broadcaster_user_name, bot)
+          .then(res => console.info(bot, 'success', res))
+          .catch(err => console.error(bot, 'error', err));
+      }
       eventEmitter.emit('stream');
     }
     res.setHeader('Content-Type', 'application/json');
